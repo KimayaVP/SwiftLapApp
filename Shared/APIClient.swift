@@ -252,6 +252,53 @@ extension APIClient {
         let r: LeaderboardResponse = try await get("/api/groups/\(groupId)/leaderboard")
         return r.leaderboard
     }
+
+    // Video & feedback
+    struct FeedbackResponse: Decodable { let feedbacks: [VideoFeedback] }
+    func fetchVideoFeedback(swimmerId: String) async throws -> [VideoFeedback] {
+        let r: FeedbackResponse = try await get("/api/video/feedback/\(swimmerId)")
+        return r.feedbacks
+    }
+    struct CommentsResponse: Decodable { let comments: [CoachComment] }
+    func fetchCoachComments(swimmerId: String) async throws -> [CoachComment] {
+        let r: CommentsResponse = try await get("/api/comments/swimmer/\(swimmerId)")
+        return r.comments
+    }
+}
+
+// MARK: - Multipart video upload
+
+extension APIClient {
+    func uploadVideo(swimmerId: String, stroke: String, videoData: Data, filename: String, mimeType: String) async throws {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let url = URL(string: AppConfig.apiBaseURL.absoluteString + "/api/video/upload")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        func appendField(_ name: String, _ value: String) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(value)\r\n".data(using: .utf8)!)
+        }
+        appendField("swimmerId", swimmerId)
+        appendField("stroke", stroke)
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"video\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(videoData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        let (data, resp) = try await session.upload(for: req, from: body)
+        guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            if let e = try? decoder.decode(ErrorBody.self, from: data), let m = e.error {
+                throw APIError.server(m)
+            }
+            throw APIError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+    }
 }
 
 // MARK: - Coach data

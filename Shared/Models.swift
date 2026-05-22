@@ -270,3 +270,35 @@ struct FriendGroup: Codable, Identifiable {
     let code: String?
     let isOwner: Bool?
 }
+
+// MARK: - Video & feedback
+
+struct AIFeedback: Codable {
+    let overallScore: Int?
+    let priorityFocus: String?
+    let bodyPosition: String?
+    let armTechnique: String?
+    let kick: String?
+}
+
+struct VideoFeedback: Codable, Identifiable {
+    let id: String
+    let stroke: String
+    let createdAt: String?
+    let feedback: AIFeedback
+}
+
+struct CommentTime: Codable {
+    let stroke: String?
+    let distance: Int?
+    let timeSeconds: Double?
+}
+
+struct CoachComment: Codable, Identifiable {
+    let id: String
+    let reaction: String?
+    let comment: String?
+    let createdAt: String?
+    let coach: NamedRef?
+    let time: CommentTime?
+}

@@ -26,6 +26,7 @@ struct ContentView: View {
             case "training": NavigationStack { TrainingView() }
             case "meets": NavigationStack { MeetsView() }
             case "friends": NavigationStack { FriendsView() }
+            case "video": NavigationStack { VideoView() }
             default: SwimmerHomeView()
             }
             #else
