@@ -213,3 +213,60 @@ struct CoachRequest: Codable, Identifiable {
     let type: String
     let from: RequestParty?
 }
+
+// MARK: - Training
+
+struct PlanMainSet: Codable, Identifiable {
+    var id = UUID()
+    let set: String
+    let rest: String?
+    let focus: String?
+    enum CodingKeys: String, CodingKey { case set, rest, focus }
+}
+
+struct WorkoutDay: Codable, Identifiable {
+    var id = UUID()
+    let day: String
+    let type: String?
+    let totalDistance: String?
+    let warmup: String?
+    let main: [PlanMainSet]?
+    let cooldown: String?
+    enum CodingKeys: String, CodingKey { case day, type, totalDistance, warmup, main, cooldown }
+}
+
+struct TrainingPlan: Codable {
+    let weekFocus: String?
+    let intensity: String?
+    let focusAreas: [String]?
+    let workouts: [WorkoutDay]?
+    let sessionsPerWeek: Int?
+    let totalWeeklyDistance: String?
+    let tips: [String]?
+}
+
+struct CoachRoutine: Codable, Identifiable {
+    let id: String
+    let title: String
+    let details: String?
+    let coachName: String?
+}
+
+// MARK: - Meet results & groups
+
+struct MeetResult: Codable, Identifiable {
+    let id: String
+    let stroke: String
+    let distance: Int
+    let timeSeconds: Double
+    let place: Int?
+    let medal: String?
+    let isPb: Bool?
+}
+
+struct FriendGroup: Codable, Identifiable {
+    let id: String
+    let name: String
+    let code: String?
+    let isOwner: Bool?
+}

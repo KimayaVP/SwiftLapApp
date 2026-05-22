@@ -24,7 +24,4 @@ private struct ComingSoon: View {
     }
 }
 
-struct TrainingView: View { var body: some View { ComingSoon(title: "Training", icon: "calendar") } }
-struct MeetsView: View { var body: some View { ComingSoon(title: "Meets & Races", icon: "flag.checkered") } }
 struct VideoView: View { var body: some View { ComingSoon(title: "Video & Feedback", icon: "video.fill") } }
-struct FriendsView: View { var body: some View { ComingSoon(title: "Friends", icon: "person.2.fill") } }

@@ -191,6 +191,67 @@ extension APIClient {
     func respondRequest(requestId: String, action: String) async throws {
         try await postExpectingError("/api/requests/respond", RespondBody(requestId: requestId, action: action))
     }
+
+    // Training
+    struct TrainingPlanResponse: Decodable {
+        let ready: Bool
+        let plan: TrainingPlan?
+        struct Missing: Decodable { let goals: Bool?; let times: Bool? }
+        let missing: Missing?
+    }
+    func fetchTrainingPlan(swimmerId: String) async throws -> TrainingPlanResponse {
+        try await get("/api/training-plan/\(swimmerId)")
+    }
+    struct RoutinesResponse: Decodable { let routines: [CoachRoutine] }
+    func fetchCoachRoutines(swimmerId: String) async throws -> [CoachRoutine] {
+        let r: RoutinesResponse = try await get("/api/training-routines/\(swimmerId)")
+        return r.routines
+    }
+
+    // Meets
+    func fetchMeets(swimmerId: String) async throws -> [Meet] {
+        let r: MeetsResponse = try await get("/api/meets/\(swimmerId)")
+        return r.meets
+    }
+    struct CreateMeetBody: Encodable { let name: String; let date: String?; let location: String?; let swimmerId: String }
+    func createMeet(swimmerId: String, name: String, date: String?, location: String?) async throws {
+        try await postExpectingError("/api/meets/create", CreateMeetBody(name: name, date: date, location: location, swimmerId: swimmerId))
+    }
+    struct RecRespondBody: Encodable { let recommendationId: String; let status: String; let swimmerId: String }
+    func respondMeetRecommendation(recommendationId: String, status: String, swimmerId: String) async throws {
+        try await postExpectingError("/api/meets/recommendation/respond", RecRespondBody(recommendationId: recommendationId, status: status, swimmerId: swimmerId))
+    }
+    struct MeetResultsResponse: Decodable { let meet: Meet?; let results: [MeetResult] }
+    func fetchMeetResults(meetId: String, swimmerId: String) async throws -> [MeetResult] {
+        let r: MeetResultsResponse = try await get("/api/meets/\(meetId)/results/\(swimmerId)")
+        return r.results
+    }
+    struct AddResultBody: Encodable {
+        let meetId: String; let swimmerId: String; let stroke: String; let distance: Int
+        let minutes: Int; let seconds: Int; let place: Int?; let medal: String?
+    }
+    func addRaceResult(meetId: String, swimmerId: String, stroke: String, distance: Int, minutes: Int, seconds: Int, place: Int?, medal: String?) async throws {
+        try await postExpectingError("/api/meets/add-result", AddResultBody(meetId: meetId, swimmerId: swimmerId, stroke: stroke, distance: distance, minutes: minutes, seconds: seconds, place: place, medal: medal))
+    }
+
+    // Groups (Friends)
+    struct GroupsResponse: Decodable { let groups: [FriendGroup] }
+    func fetchGroups(swimmerId: String) async throws -> [FriendGroup] {
+        let r: GroupsResponse = try await get("/api/groups/\(swimmerId)")
+        return r.groups
+    }
+    struct CreateGroupBody: Encodable { let name: String; let swimmerId: String }
+    func createGroup(name: String, swimmerId: String) async throws {
+        try await postExpectingError("/api/groups/create", CreateGroupBody(name: name, swimmerId: swimmerId))
+    }
+    struct JoinGroupBody: Encodable { let code: String; let swimmerId: String }
+    func joinGroup(code: String, swimmerId: String) async throws {
+        try await postExpectingError("/api/groups/join", JoinGroupBody(code: code, swimmerId: swimmerId))
+    }
+    func groupLeaderboard(groupId: String) async throws -> [LeaderboardEntry] {
+        let r: LeaderboardResponse = try await get("/api/groups/\(groupId)/leaderboard")
+        return r.leaderboard
+    }
 }
 
 // MARK: - Coach data

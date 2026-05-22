@@ -23,6 +23,9 @@ struct ContentView: View {
             case "achievements": NavigationStack { AchievementsView() }
             case "insights": NavigationStack { InsightsView() }
             case "settings": NavigationStack { SettingsView() }
+            case "training": NavigationStack { TrainingView() }
+            case "meets": NavigationStack { MeetsView() }
+            case "friends": NavigationStack { FriendsView() }
             default: SwimmerHomeView()
             }
             #else
