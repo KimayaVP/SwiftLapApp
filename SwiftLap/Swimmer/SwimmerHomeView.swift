@@ -12,13 +12,18 @@ import SwiftUI
 struct SwimmerHomeView: View {
     @EnvironmentObject var auth: AuthManager
 
+    @State private var invites: [CoachRequest] = []
+
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    if auth.currentUser?.coachId == nil {
+                    ForEach(invites) { invite in
+                        inviteCard(invite)
+                    }
+                    if auth.currentUser?.coachId == nil && invites.isEmpty {
                         noCoachBanner
                     }
                     LazyVGrid(columns: columns, spacing: 14) {
@@ -35,6 +40,7 @@ struct SwimmerHomeView: View {
                 .padding()
             }
             .navigationTitle("Hi, \(firstName)")
+            .task { await loadInvites() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("🏊 Swimmer").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -67,6 +73,38 @@ struct SwimmerHomeView: View {
         .padding()
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.orange.opacity(0.12)))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.3)))
+    }
+
+    private func inviteCard(_ invite: CoachRequest) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("👨‍🏫 Coach invite").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text("\(invite.from?.name ?? "A coach") invited you to join their team")
+                .font(.subheadline)
+            HStack {
+                Button("Accept") { Task { await respond(invite, "accept") } }
+                    .buttonStyle(.borderedProminent)
+                Button("Decline") { Task { await respond(invite, "reject") } }
+                    .buttonStyle(.bordered).tint(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.cyan.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.cyan.opacity(0.3)))
+    }
+
+    private func loadInvites() async {
+        guard let id = auth.currentUser?.id else { return }
+        let all = (try? await APIClient.shared.incomingRequests(userId: id)) ?? []
+        invites = all.filter { $0.type == "coach_to_swimmer" }
+    }
+
+    private func respond(_ invite: CoachRequest, _ action: String) async {
+        try? await APIClient.shared.respondRequest(requestId: invite.id, action: action)
+        if action == "accept", let coachId = invite.from?.id {
+            auth.markLinkedToCoach(coachId)
+        }
+        invites.removeAll { $0.id == invite.id }
     }
 }
 

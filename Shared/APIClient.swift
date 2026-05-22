@@ -152,6 +152,45 @@ extension APIClient {
         let r: RecommendationsResponse = try await get("/api/meets/recommendations/\(swimmerId)")
         return r.recommendations
     }
+
+    // Achievements
+    struct AchievementsResponse: Decodable { let all: [Badge]; let streak: Streak; let challenge: Challenge? }
+    func fetchAchievements(swimmerId: String) async throws -> AchievementsResponse {
+        try await get("/api/achievements/\(swimmerId)")
+    }
+
+    struct CoachBadgesResponse: Decodable { let badges: [CoachBadge] }
+    func fetchCoachBadges(swimmerId: String) async throws -> [CoachBadge] {
+        let r: CoachBadgesResponse = try await get("/api/coach-badges/swimmer/\(swimmerId)")
+        return r.badges
+    }
+
+    // Insights
+    func fetchInsights(swimmerId: String) async throws -> Insights {
+        try await get("/api/insights/\(swimmerId)")
+    }
+
+    // Settings
+    struct SettingsResponse: Decodable { struct S: Decodable { let showOnLeaderboard: Bool }; let settings: S }
+    func fetchLeaderboardVisibility(swimmerId: String) async throws -> Bool {
+        let r: SettingsResponse = try await get("/api/settings/\(swimmerId)")
+        return r.settings.showOnLeaderboard
+    }
+    struct VisibilityBody: Encodable { let swimmerId: String; let showOnLeaderboard: Bool }
+    func setLeaderboardVisibility(swimmerId: String, show: Bool) async throws {
+        try await postExpectingError("/api/settings/leaderboard-visibility", VisibilityBody(swimmerId: swimmerId, showOnLeaderboard: show))
+    }
+
+    // Coach invites the swimmer accepts
+    struct IncomingResponse: Decodable { let requests: [CoachRequest] }
+    func incomingRequests(userId: String) async throws -> [CoachRequest] {
+        let r: IncomingResponse = try await get("/api/requests/incoming/\(userId)")
+        return r.requests
+    }
+    struct RespondBody: Encodable { let requestId: String; let action: String }
+    func respondRequest(requestId: String, action: String) async throws {
+        try await postExpectingError("/api/requests/respond", RespondBody(requestId: requestId, action: action))
+    }
 }
 
 // MARK: - Coach data

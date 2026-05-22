@@ -26,8 +26,5 @@ private struct ComingSoon: View {
 
 struct TrainingView: View { var body: some View { ComingSoon(title: "Training", icon: "calendar") } }
 struct MeetsView: View { var body: some View { ComingSoon(title: "Meets & Races", icon: "flag.checkered") } }
-struct InsightsView: View { var body: some View { ComingSoon(title: "Insights & Rank", icon: "chart.line.uptrend.xyaxis") } }
-struct AchievementsView: View { var body: some View { ComingSoon(title: "Achievements", icon: "medal.fill") } }
 struct VideoView: View { var body: some View { ComingSoon(title: "Video & Feedback", icon: "video.fill") } }
 struct FriendsView: View { var body: some View { ComingSoon(title: "Friends", icon: "person.2.fill") } }
-struct SettingsView: View { var body: some View { ComingSoon(title: "Settings", icon: "gearshape") } }

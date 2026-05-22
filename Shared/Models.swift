@@ -150,3 +150,66 @@ struct WatchStatus: Codable {
     let linkedAt: String?
     let workoutCount: Int
 }
+
+// MARK: - Achievements
+
+struct Streak: Codable {
+    let currentStreak: Int
+    let longestStreak: Int
+}
+
+struct Challenge: Codable {
+    let name: String?
+    let desc: String?
+    let progress: Int?
+    let target: Int?
+    let completed: Bool?
+}
+
+struct Badge: Codable, Identifiable {
+    let id: String
+    let name: String
+    let icon: String
+    let desc: String?
+    let earned: Bool?
+}
+
+struct CoachBadge: Codable, Identifiable {
+    let id: String
+    let badgeName: String?
+    let badgeIcon: String?
+    let message: String?
+    let coach: NamedRef?
+}
+
+struct NamedRef: Codable { let name: String? }
+
+// MARK: - Insights
+
+struct PaceTrend: Codable { let direction: String?; let description: String? }
+struct GoalInsight: Codable { let status: String?; let message: String? }
+struct RankingInsight: Codable { let mainFactor: String? }
+
+struct Insights: Codable {
+    let totalSessions: Int
+    let paceTrend: PaceTrend?
+    let consistencyScore: Int?
+    let consistencyDesc: String?
+    let goalInsight: GoalInsight?
+    let rankingInsight: RankingInsight?
+}
+
+// MARK: - Requests (coach invites the swimmer accepts)
+
+struct RequestParty: Codable {
+    let id: String
+    let name: String
+    let email: String?
+    let role: String?
+}
+
+struct CoachRequest: Codable, Identifiable {
+    let id: String
+    let type: String
+    let from: RequestParty?
+}

@@ -110,6 +110,15 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    /// After a swimmer accepts a coach's invite, reflect the link locally so the
+    /// "no coach" banner disappears without needing a full re-login.
+    func markLinkedToCoach(_ coachId: String) {
+        guard let u = currentUser else { return }
+        persist(Profile(id: u.id, email: u.email, name: u.name, role: u.role,
+                        coachId: coachId, watchLinkedAt: u.watchLinkedAt,
+                        showOnLeaderboard: u.showOnLeaderboard))
+    }
+
     // MARK: - Logout
 
     func logout() {

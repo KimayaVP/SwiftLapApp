@@ -20,6 +20,9 @@ struct ContentView: View {
             switch Self.debugScreen {
             case "recents": NavigationStack { RecentsView() }
             case "goals": NavigationStack { GoalsView() }
+            case "achievements": NavigationStack { AchievementsView() }
+            case "insights": NavigationStack { InsightsView() }
+            case "settings": NavigationStack { SettingsView() }
             default: SwimmerHomeView()
             }
             #else
