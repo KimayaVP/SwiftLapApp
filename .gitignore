@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Xcode build output
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# XcodeGen regenerates this from project.yml — run `xcodegen generate`
+SwiftLap.xcodeproj/
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
