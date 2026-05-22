@@ -2,8 +2,7 @@
 //  ContentView.swift
 //  SwiftLap (iOS)
 //
-//  Top-level gate: show login when signed out, the app shell when signed in.
-//  Real swimmer/coach tabs land in M4/M5.
+//  Top-level gate: login when signed out, swimmer or coach home when signed in.
 //
 
 import SwiftUI
@@ -14,64 +13,51 @@ struct ContentView: View {
     var body: some View {
         if auth.currentUser == nil {
             LoginView()
+        } else if auth.currentUser?.role == "coach" {
+            CoachHomePlaceholder()
         } else {
-            MainTabView()
-        }
-    }
-}
-
-struct MainTabView: View {
-    @EnvironmentObject var auth: AuthManager
-
-    var body: some View {
-        TabView {
-            HomePlaceholder()
-                .tabItem { Label("Home", systemImage: "house.fill") }
-            ProfilePlaceholder()
-                .tabItem { Label("Profile", systemImage: "person.fill") }
-        }
-        .tint(.cyan)
-    }
-}
-
-private struct HomePlaceholder: View {
-    @EnvironmentObject var auth: AuthManager
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "figure.pool.swim")
-                .font(.system(size: 56))
-                .foregroundStyle(.cyan)
-            Text("Welcome, \(auth.currentUser?.name ?? "")!")
-                .font(.title2.bold())
-            if let role = auth.currentUser?.role {
-                Text(role == "coach" ? "👨‍🏫 Coach" : "🏊 Swimmer")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            #if DEBUG
+            switch Self.debugScreen {
+            case "recents": NavigationStack { RecentsView() }
+            case "goals": NavigationStack { GoalsView() }
+            default: SwimmerHomeView()
             }
+            #else
+            SwimmerHomeView()
+            #endif
         }
-        .padding()
     }
+
+    #if DEBUG
+    /// Screenshot hook: launch with `-screen recents` / `-screen goals`.
+    static var debugScreen: String? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "-screen"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+    #endif
 }
 
-private struct ProfilePlaceholder: View {
+/// Coach side is built in M5.
+struct CoachHomePlaceholder: View {
     @EnvironmentObject var auth: AuthManager
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text(auth.currentUser?.name ?? "")
-                .font(.title2.bold())
-            Text(auth.currentUser?.email ?? "")
-                .foregroundStyle(.secondary)
-            Button(role: .destructive) {
-                auth.logout()
-            } label: {
-                Text("Log out").frame(maxWidth: .infinity)
+        NavigationStack {
+            VStack(spacing: 14) {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.cyan)
+                Text("Coach dashboard").font(.title2.bold())
+                Text("Coming in M5").foregroundStyle(.secondary)
+                Button(role: .destructive) { auth.logout() } label: {
+                    Text("Log out")
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 12)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding(.top, 20)
+            .padding()
+            .navigationTitle("Hi, \(auth.currentUser?.name ?? "Coach")")
         }
-        .padding()
     }
 }

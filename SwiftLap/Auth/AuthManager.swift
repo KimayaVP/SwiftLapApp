@@ -26,6 +26,18 @@ final class AuthManager: ObservableObject {
     private let storeKey = "currentUser"
 
     init() {
+        #if DEBUG
+        // Screenshot/UI-test hook: launch with -uitestSwimmer / -uitestCoach to
+        // skip login with a mock profile (fetches return empty → empty states).
+        if CommandLine.arguments.contains("-uitestSwimmer") {
+            currentUser = Profile(id: "UITEST", email: "test@swiftlap.app", name: "Test Swimmer", role: "swimmer", coachId: nil, watchLinkedAt: nil, showOnLeaderboard: nil)
+            return
+        }
+        if CommandLine.arguments.contains("-uitestCoach") {
+            currentUser = Profile(id: "UITEST", email: "coach@swiftlap.app", name: "Test Coach", role: "coach", coachId: nil, watchLinkedAt: nil, showOnLeaderboard: nil)
+            return
+        }
+        #endif
         if let data = UserDefaults.standard.data(forKey: storeKey),
            let user = try? JSONDecoder().decode(Profile.self, from: data) {
             currentUser = user

@@ -135,6 +135,19 @@ extension APIClient {
         return r.goals
     }
 
+    struct SetGoalBody: Encodable {
+        let swimmerId: String; let stroke: String; let distance: Int
+        let targetMinutes: Int; let targetSeconds: Int
+    }
+    func setGoal(swimmerId: String, stroke: String, distance: Int, targetMinutes: Int, targetSeconds: Int) async throws {
+        try await postExpectingError("/api/goals", SetGoalBody(swimmerId: swimmerId, stroke: stroke, distance: distance, targetMinutes: targetMinutes, targetSeconds: targetSeconds))
+    }
+
+    struct SetActiveGoalBody: Encodable { let swimmerId: String; let goalId: String }
+    func setActiveGoal(swimmerId: String, goalId: String) async throws {
+        try await postExpectingError("/api/goals/set-active", SetActiveGoalBody(swimmerId: swimmerId, goalId: goalId))
+    }
+
     func fetchMeetRecommendations(swimmerId: String) async throws -> [MeetRecommendation] {
         let r: RecommendationsResponse = try await get("/api/meets/recommendations/\(swimmerId)")
         return r.recommendations
