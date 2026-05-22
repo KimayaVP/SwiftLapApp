@@ -9,8 +9,10 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 
-# XcodeGen regenerates this from project.yml — run `xcodegen generate`
+# XcodeGen regenerates these from project.yml — run `xcodegen generate`
 SwiftLap.xcodeproj/
+SwiftLap/Info.plist
+SwiftLap/SwiftLap.entitlements
 
 # Swift Package Manager
 .swiftpm/
