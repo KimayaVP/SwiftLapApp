@@ -214,6 +214,16 @@ struct CoachRequest: Codable, Identifiable {
     let from: RequestParty?
 }
 
+struct SwimmerRef: Codable, Identifiable {
+    let id: String
+    let name: String
+}
+
+struct OutgoingInvite: Codable, Identifiable {
+    let id: String
+    let to: RequestParty?
+}
+
 // MARK: - Training
 
 struct PlanMainSet: Codable, Identifiable {

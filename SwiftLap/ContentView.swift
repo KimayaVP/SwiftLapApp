@@ -18,6 +18,9 @@ struct ContentView: View {
             switch Self.debugScreen {
             case "coachOverview": NavigationStack { CoachOverviewView() }
             case "coachLeaderboard": NavigationStack { CoachLeaderboardView() }
+            case "coachBatches": NavigationStack { CoachBatchesView() }
+            case "coachRecommend": NavigationStack { CoachRecommendView() }
+            case "coachAssign": NavigationStack { CoachAssignView() }
             default: CoachHomeView()
             }
             #else

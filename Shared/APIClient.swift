@@ -325,6 +325,65 @@ extension APIClient {
         let r: BatchesResponse = try await get("/api/batches/\(coachId)")
         return r.batches
     }
+
+    // Coach: swimmers, batches management, comments, badges, invites
+    struct SwimmersResponse: Decodable { let swimmers: [SwimmerRef] }
+    func fetchCoachSwimmers(coachId: String) async throws -> [SwimmerRef] {
+        let r: SwimmersResponse = try await get("/api/coach/swimmers/\(coachId)")
+        return r.swimmers
+    }
+
+    struct CreateBatchBody: Encodable { let name: String; let coachId: String }
+    func createBatch(name: String, coachId: String) async throws {
+        try await postExpectingError("/api/batches/create", CreateBatchBody(name: name, coachId: coachId))
+    }
+    struct AvailableResponse: Decodable { let available: [SwimmerRef] }
+    func batchAvailableSwimmers(batchId: String, coachId: String) async throws -> [SwimmerRef] {
+        let r: AvailableResponse = try await get("/api/batches/\(batchId)/available/\(coachId)")
+        return r.available
+    }
+    struct BatchSwimmerBody: Encodable { let batchId: String; let swimmerId: String }
+    func addSwimmerToBatch(batchId: String, swimmerId: String) async throws {
+        try await postExpectingError("/api/batches/add-swimmer", BatchSwimmerBody(batchId: batchId, swimmerId: swimmerId))
+    }
+    func removeSwimmerFromBatch(batchId: String, swimmerId: String) async throws {
+        try await postExpectingError("/api/batches/remove-swimmer", BatchSwimmerBody(batchId: batchId, swimmerId: swimmerId))
+    }
+
+    struct CommentBody: Encodable { let coachId: String; let swimmerId: String; let comment: String?; let reaction: String? }
+    func addCoachComment(coachId: String, swimmerId: String, comment: String?, reaction: String?) async throws {
+        try await postExpectingError("/api/comments/add", CommentBody(coachId: coachId, swimmerId: swimmerId, comment: comment, reaction: reaction))
+    }
+
+    struct AwardBadgeBody: Encodable { let coachId: String; let swimmerId: String; let badgeName: String; let badgeIcon: String; let message: String? }
+    func awardBadge(coachId: String, swimmerId: String, badgeName: String, badgeIcon: String, message: String?) async throws {
+        try await postExpectingError("/api/coach-badges/award", AwardBadgeBody(coachId: coachId, swimmerId: swimmerId, badgeName: badgeName, badgeIcon: badgeIcon, message: message))
+    }
+
+    struct RecommendBody: Encodable { let coachId: String; let swimmerIds: [String]; let meetName: String; let meetDate: String?; let note: String? }
+    func recommendMeet(coachId: String, swimmerIds: [String], meetName: String, meetDate: String?, note: String?) async throws {
+        try await postExpectingError("/api/meets/recommend", RecommendBody(coachId: coachId, swimmerIds: swimmerIds, meetName: meetName, meetDate: meetDate, note: note))
+    }
+
+    struct AssignGoalBody: Encodable { let coachId: String; let swimmerId: String; let stroke: String; let distance: Int; let targetMinutes: Int; let targetSeconds: Int }
+    func assignGoal(coachId: String, swimmerId: String, stroke: String, distance: Int, targetMinutes: Int, targetSeconds: Int) async throws {
+        try await postExpectingError("/api/goals/assign", AssignGoalBody(coachId: coachId, swimmerId: swimmerId, stroke: stroke, distance: distance, targetMinutes: targetMinutes, targetSeconds: targetSeconds))
+    }
+    struct AssignRoutineBody: Encodable { let coachId: String; let swimmerId: String; let title: String; let details: String? }
+    func assignRoutine(coachId: String, swimmerId: String, title: String, details: String?) async throws {
+        try await postExpectingError("/api/training-routines/assign", AssignRoutineBody(coachId: coachId, swimmerId: swimmerId, title: title, details: details))
+    }
+
+    struct InviteBody: Encodable { let coachId: String; let swimmerEmail: String }
+    struct InviteResponse: Decodable { let success: Bool?; let emailed: Bool?; let message: String?; let swimmer: SwimmerRef?; let error: String? }
+    func inviteSwimmer(coachId: String, email: String) async throws -> InviteResponse {
+        try await post("/api/requests/invite", InviteBody(coachId: coachId, swimmerEmail: email))
+    }
+    struct OutgoingResponse: Decodable { let requests: [OutgoingInvite] }
+    func outgoingInvites(coachId: String) async throws -> [OutgoingInvite] {
+        let r: OutgoingResponse = try await get("/api/requests/outgoing/\(coachId)")
+        return r.requests
+    }
 }
 
 // MARK: - Watch
