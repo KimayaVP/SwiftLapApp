@@ -13,6 +13,8 @@ xcuserdata/
 SwiftLap.xcodeproj/
 SwiftLap/Info.plist
 SwiftLap/SwiftLap.entitlements
+Watch/Info.plist
+Watch/SwiftLapWatch.entitlements
 
 # Swift Package Manager
 .swiftpm/

@@ -404,4 +404,24 @@ extension APIClient {
     func unlinkWatch(swimmerId: String) async throws {
         try await postExpectingError("/api/watch/unlink", UnlinkBody(swimmerId: swimmerId))
     }
+
+    // Watch app: link via 6-digit code, and send a workout
+    struct VerifyCodeBody: Encodable { let code: String }
+    struct VerifyCodeResponse: Decodable { let swimmerId: String?; let error: String? }
+    func verifyWatchCode(_ code: String) async throws -> String {
+        let r: VerifyCodeResponse = try await post("/api/watch/verify-code", VerifyCodeBody(code: code))
+        guard let id = r.swimmerId else { throw APIError.server(r.error ?? "Invalid code") }
+        return id
+    }
+
+    struct WatchWorkoutBody: Encodable {
+        let swimmerId: String; let duration: Int; let distance: Double; let laps: Int
+        let strokeCount: Int; let avgHeartRate: Double; let calories: Double
+        let lapTimes: [Double]; let lapStrokes: [Int]; let fatigueLevel: String
+        let poolLength: Double; let date: String; let source: String
+    }
+    func sendWatchWorkout(swimmerId: String, duration: Int, distance: Double, laps: Int, strokeCount: Int, avgHeartRate: Double, calories: Double, lapTimes: [Double], lapStrokes: [Int], fatigueLevel: String, poolLength: Double) async throws {
+        let body = WatchWorkoutBody(swimmerId: swimmerId, duration: duration, distance: distance, laps: laps, strokeCount: strokeCount, avgHeartRate: avgHeartRate, calories: calories, lapTimes: lapTimes, lapStrokes: lapStrokes, fatigueLevel: fatigueLevel, poolLength: poolLength, date: ISO8601DateFormatter().string(from: Date()), source: "apple_watch")
+        try await postExpectingError("/api/watch/workout", body)
+    }
 }
