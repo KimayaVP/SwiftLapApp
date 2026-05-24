@@ -41,7 +41,7 @@ struct VideoView: View {
                 if let status { Text(status).font(.caption).foregroundStyle(.secondary) }
             }
 
-            Section("AI Feedback") {
+            Section {
                 if loading {
                     ProgressView()
                 } else if feedbacks.isEmpty {
@@ -49,6 +49,17 @@ struct VideoView: View {
                 } else {
                     ForEach(feedbacks.prefix(3)) { f in feedbackRow(f) }
                 }
+            } header: {
+                HStack(spacing: 6) {
+                    Text("AI Feedback")
+                    Text("BETA")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(Color.orange))
+                        .foregroundStyle(.white)
+                }
+            } footer: {
+                Text("Automated feedback is an early preview — not real video analysis yet.")
             }
 
             Section("Coach Feedback") {
