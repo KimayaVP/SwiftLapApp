@@ -5,6 +5,29 @@
 
 import SwiftUI
 import PhotosUI
+import AVFoundation
+
+/// Picked video as a file URL (so we can inspect its duration before upload).
+struct PickedMovie: Transferable {
+    let url: URL
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+            try? FileManager.default.removeItem(at: temp)
+            try FileManager.default.copyItem(at: received.file, to: temp)
+            return PickedMovie(url: temp)
+        }
+    }
+}
+
+enum VideoUploadError: LocalizedError {
+    case tooLong
+    var errorDescription: String? {
+        switch self { case .tooLong: return "Please choose a clip under 5 minutes." }
+    }
+}
 
 struct VideoView: View {
     @EnvironmentObject var auth: AuthManager
@@ -91,6 +114,9 @@ struct VideoView: View {
             if let focus = f.feedback.priorityFocus {
                 Text("Focus on: \(focus)").font(.caption).foregroundStyle(.secondary)
             }
+            if let coach = f.coachFeedback, !coach.isEmpty {
+                Text("👨‍🏫 Coach: \(coach)").font(.caption).foregroundStyle(.green)
+            }
         }
     }
 
@@ -127,9 +153,14 @@ struct VideoView: View {
         guard let id = auth.currentUser?.id, let item = pickedItem else { return }
         uploading = true; status = nil
         do {
-            guard let data = try await item.loadTransferable(type: Data.self) else {
+            guard let movie = try await item.loadTransferable(type: PickedMovie.self) else {
                 status = "Couldn't read that video"; uploading = false; return
             }
+            let asset = AVURLAsset(url: movie.url)
+            let duration = try await asset.load(.duration)
+            if CMTimeGetSeconds(duration) > 300 { throw VideoUploadError.tooLong }
+            let data = try Data(contentsOf: movie.url)
+            try? FileManager.default.removeItem(at: movie.url)
             try await APIClient.shared.uploadVideo(swimmerId: id, stroke: stroke, videoData: data, filename: "swim.mov", mimeType: "video/quicktime")
             status = "Uploaded — feedback ready below."
             pickedItem = nil; hasPicked = false

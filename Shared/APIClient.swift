@@ -269,6 +269,11 @@ extension APIClient {
         let r: CommentsResponse = try await get("/api/comments/swimmer/\(swimmerId)")
         return r.comments
     }
+
+    struct CoachVideoFeedbackBody: Encodable { let videoId: String; let coachId: String; let feedback: String }
+    func coachVideoFeedback(videoId: String, coachId: String, feedback: String) async throws {
+        try await postExpectingError("/api/video/coach-feedback", CoachVideoFeedbackBody(videoId: videoId, coachId: coachId, feedback: feedback))
+    }
 }
 
 // MARK: - Multipart video upload

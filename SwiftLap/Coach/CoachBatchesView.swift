@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AVKit
 
 struct CoachBatchesView: View {
     @EnvironmentObject var auth: AuthManager
@@ -109,11 +110,18 @@ struct CoachSwimmerView: View {
     @State private var badgeMessage = ""
     @State private var selectedBadgeId: UUID?
     @State private var status: String?
+    @State private var videos: [VideoFeedback] = []
+    @State private var videoNotes: [String: String] = [:]
 
     private let columns = [GridItem(.adaptive(minimum: 90), spacing: 10)]
 
     var body: some View {
         List {
+            if !videos.isEmpty {
+                Section("Videos") {
+                    ForEach(videos) { v in videoReviewRow(v) }
+                }
+            }
             Section("Quick Reaction") {
                 HStack(spacing: 16) {
                     ForEach(["🔥", "💪", "👏", "⭐️"], id: \.self) { r in
@@ -148,6 +156,45 @@ struct CoachSwimmerView: View {
         }
         .navigationTitle(swimmer.name)
         .navigationBarTitleDisplayMode(.inline)
+        .task { await loadVideos() }
+    }
+
+    @ViewBuilder
+    private func videoReviewRow(_ v: VideoFeedback) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(v.stroke)\(v.feedback.overallScore.map { " · AI \($0)/10" } ?? "")")
+                .font(.subheadline.weight(.medium))
+            if let urlStr = v.videoUrl, let url = URL(string: urlStr) {
+                VideoPlayer(player: AVPlayer(url: url))
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else {
+                Text("Video no longer available (auto-deleted after 14 days).")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            if let existing = v.coachFeedback, !existing.isEmpty {
+                Text("Your feedback: \(existing)").font(.caption).foregroundStyle(.green)
+            }
+            TextField("Leave feedback on this clip", text: Binding(
+                get: { videoNotes[v.id] ?? "" },
+                set: { videoNotes[v.id] = $0 }
+            ), axis: .vertical)
+            Button("Send Feedback") { Task { await sendVideoFeedback(v) } }
+                .disabled((videoNotes[v.id] ?? "").isEmpty)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func loadVideos() async {
+        videos = (try? await APIClient.shared.fetchVideoFeedback(swimmerId: swimmer.id)) ?? []
+    }
+
+    private func sendVideoFeedback(_ v: VideoFeedback) async {
+        guard let coachId = auth.currentUser?.id, let note = videoNotes[v.id], !note.isEmpty else { return }
+        try? await APIClient.shared.coachVideoFeedback(videoId: v.id, coachId: coachId, feedback: note)
+        videoNotes[v.id] = ""
+        status = "Video feedback sent"
+        await loadVideos()
     }
 
     private func react(_ emoji: String) async {

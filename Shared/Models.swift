@@ -296,6 +296,8 @@ struct VideoFeedback: Codable, Identifiable {
     let stroke: String
     let createdAt: String?
     let feedback: AIFeedback
+    let videoUrl: String?       // short-lived signed URL (nil after 14-day cleanup)
+    let coachFeedback: String?  // written review from the coach
 }
 
 struct CommentTime: Codable {
