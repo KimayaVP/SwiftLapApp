@@ -107,6 +107,11 @@ extension APIClient {
     func oauthSync(accessToken: String, role: String? = nil) async throws -> AuthResponse {
         try await post("/api/auth/oauth-sync", OAuthSyncBody(accessToken: accessToken, role: role))
     }
+
+    struct DeleteAccountBody: Encodable { let userId: String }
+    func deleteAccount(userId: String) async throws {
+        try await postExpectingError("/api/auth/delete-account", DeleteAccountBody(userId: userId))
+    }
 }
 
 // MARK: - Swimmer data

@@ -119,6 +119,16 @@ final class AuthManager: ObservableObject {
                         showOnLeaderboard: u.showOnLeaderboard))
     }
 
+    // MARK: - Delete account
+
+    func deleteAccount() async {
+        guard let id = currentUser?.id else { return }
+        await run {
+            try await APIClient.shared.deleteAccount(userId: id)
+        }
+        if errorMessage == nil { logout() }
+    }
+
     // MARK: - Logout
 
     func logout() {

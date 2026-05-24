@@ -10,6 +10,7 @@ import SwiftUI
 struct CoachHomeView: View {
     @EnvironmentObject var auth: AuthManager
     @State private var showInvite = false
+    @State private var showDeleteConfirm = false
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -34,12 +35,19 @@ struct CoachHomeView: View {
                     Menu {
                         Button { showInvite = true } label: { Label("Invite Swimmer", systemImage: "person.badge.plus") }
                         Button(role: .destructive) { auth.logout() } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
+                        Button(role: .destructive) { showDeleteConfirm = true } label: { Label("Delete Account", systemImage: "trash") }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
                 }
             }
             .sheet(isPresented: $showInvite) { CoachInviteView() }
+            .alert("Delete Account?", isPresented: $showDeleteConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }
+            } message: {
+                Text("This permanently deletes your account and all your data. This cannot be undone.")
+            }
         }
     }
 

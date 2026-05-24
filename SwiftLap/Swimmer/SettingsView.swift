@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var watch: WatchStatus?
     @State private var generatedCode: String?
     @State private var loading = true
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         List {
@@ -47,9 +48,21 @@ struct SettingsView: View {
             Section {
                 Button("Log out", role: .destructive) { auth.logout() }
             }
+
+            Section {
+                Button("Delete Account", role: .destructive) { showDeleteConfirm = true }
+            } footer: {
+                Text("Permanently deletes your account and all your data. This cannot be undone.")
+            }
         }
         .navigationTitle("Settings")
         .task { await load() }
+        .alert("Delete Account?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }
+        } message: {
+            Text("This permanently deletes your account and all your data. This cannot be undone.")
+        }
     }
 
     private func load() async {
