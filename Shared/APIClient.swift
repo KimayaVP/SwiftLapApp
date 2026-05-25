@@ -58,8 +58,16 @@ final class APIClient {
         return try await perform(await authorized(req))
     }
 
+    // Endpoints that need no token. Critically, /api/config must be excluded:
+    // the token provider itself fetches config to build the Supabase client, so
+    // attaching a token here would recurse (token -> config -> token -> ...).
+    private static let publicPaths: Set<String> = [
+        "/api/config", "/api/auth/login", "/api/auth/signup", "/api/auth/oauth-sync",
+    ]
+
     // Adds the Bearer auth header when a token provider is configured.
     private func authorized(_ req: URLRequest) async -> URLRequest {
+        if let path = req.url?.path, Self.publicPaths.contains(path) { return req }
         guard let token = await tokenProvider?() else { return req }
         var r = req
         r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
