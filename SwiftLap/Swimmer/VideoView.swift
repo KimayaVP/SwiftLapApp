@@ -74,7 +74,7 @@ struct VideoView: View {
                 }
             } header: {
                 HStack(spacing: 6) {
-                    Text("AI Feedback")
+                    Text("Stroke Analysis")
                     Text("BETA")
                         .font(.caption2.weight(.bold))
                         .padding(.horizontal, 6).padding(.vertical, 2)

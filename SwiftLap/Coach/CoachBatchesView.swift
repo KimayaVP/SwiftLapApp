@@ -58,6 +58,7 @@ struct CoachBatchesView: View {
         .sheet(isPresented: $showCreate) {
             CreateBatchSheet { name in await createBatch(name) }
         }
+        .refreshable { await load() }
         .task { await load() }
     }
 
@@ -104,6 +105,7 @@ struct CoachBatchesView: View {
 
 struct CoachSwimmerView: View {
     @EnvironmentObject var auth: AuthManager
+    @Environment(\.dismiss) private var dismiss
     let swimmer: CoachSwimmer
 
     @State private var comment = ""
@@ -112,6 +114,7 @@ struct CoachSwimmerView: View {
     @State private var status: String?
     @State private var videos: [VideoFeedback] = []
     @State private var videoNotes: [String: String] = [:]
+    @State private var showRemoveConfirm = false
 
     private let columns = [GridItem(.adaptive(minimum: 90), spacing: 10)]
 
@@ -153,10 +156,27 @@ struct CoachSwimmerView: View {
                 Button("Award Badge") { Task { await award() } }.disabled(selectedBadgeId == nil)
             }
             if let status { Text(status).font(.caption).foregroundStyle(.green) }
+
+            Section {
+                Button("Remove from My Squad", role: .destructive) { showRemoveConfirm = true }
+            } footer: {
+                Text("Unattaches this swimmer from you. You'll no longer see their data; you can re-invite them later.")
+            }
         }
         .navigationTitle(swimmer.name)
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadVideos() }
+        .alert("Remove \(swimmer.name)?", isPresented: $showRemoveConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) { Task { await removeFromSquad() } }
+        } message: {
+            Text("They'll become unassigned and you'll no longer see their data. You can re-invite them later.")
+        }
+    }
+
+    private func removeFromSquad() async {
+        try? await APIClient.shared.unlinkSwimmer(swimmerId: swimmer.id)
+        dismiss()
     }
 
     @ViewBuilder
@@ -227,6 +247,7 @@ struct BatchManageView: View {
 
     @State private var members: [LeaderboardEntry] = []
     @State private var available: [SwimmerRef] = []
+    @State private var allBatches: [Batch] = []
     @State private var loading = true
 
     var body: some View {
@@ -239,6 +260,14 @@ struct BatchManageView: View {
                         HStack {
                             Text(m.name)
                             Spacer()
+                            let targets = allBatches.filter { $0.id != batch.id }
+                            if !targets.isEmpty {
+                                Menu("Move") {
+                                    ForEach(targets) { t in
+                                        Button(t.name) { Task { await move(m.id, to: t.id) } }
+                                    }
+                                }.font(.caption)
+                            }
                             Button("Remove", role: .destructive) { Task { await remove(m.id) } }.font(.caption)
                         }
                     }
@@ -274,6 +303,7 @@ struct BatchManageView: View {
         loading = true
         members = (try? await APIClient.shared.batchLeaderboard(batchId: batch.id)) ?? []
         available = (try? await APIClient.shared.batchAvailableSwimmers(batchId: batch.id, coachId: id)) ?? []
+        allBatches = (try? await APIClient.shared.fetchBatches(coachId: id)) ?? []
         loading = false
     }
 
@@ -284,6 +314,11 @@ struct BatchManageView: View {
 
     private func remove(_ swimmerId: String) async {
         try? await APIClient.shared.removeSwimmerFromBatch(batchId: batch.id, swimmerId: swimmerId)
+        await load(); onChange()
+    }
+
+    private func move(_ swimmerId: String, to toBatchId: String) async {
+        try? await APIClient.shared.moveSwimmer(swimmerId: swimmerId, fromBatchId: batch.id, toBatchId: toBatchId)
         await load(); onChange()
     }
 }

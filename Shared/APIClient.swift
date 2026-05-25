@@ -29,6 +29,11 @@ enum APIError: LocalizedError {
 final class APIClient {
     static let shared = APIClient()
 
+    /// Supplies a current Supabase access token, attached as a Bearer header to
+    /// every request. Set by AuthManager on the iOS app; left nil on the watch
+    /// (which has no user session and only calls the public watch endpoints).
+    var tokenProvider: (() async -> String?)?
+
     private let session: URLSession = .shared
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
@@ -43,14 +48,22 @@ final class APIClient {
     // MARK: Core
 
     func get<T: Decodable>(_ path: String) async throws -> T {
-        try await perform(makeRequest(path, method: "GET"))
+        try await perform(await authorized(makeRequest(path, method: "GET")))
     }
 
     func post<T: Decodable, Body: Encodable>(_ path: String, _ body: Body) async throws -> T {
         var req = makeRequest(path, method: "POST")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try encoder.encode(body)
-        return try await perform(req)
+        return try await perform(await authorized(req))
+    }
+
+    // Adds the Bearer auth header when a token provider is configured.
+    private func authorized(_ req: URLRequest) async -> URLRequest {
+        guard let token = await tokenProvider?() else { return req }
+        var r = req
+        r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return r
     }
 
     @discardableResult
@@ -300,6 +313,7 @@ extension APIClient {
         body.append(videoData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
+        req = await authorized(req)
         let (data, resp) = try await session.upload(for: req, from: body)
         guard let http = resp as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
@@ -346,6 +360,25 @@ extension APIClient {
     struct CreateBatchBody: Encodable { let name: String; let coachId: String }
     func createBatch(name: String, coachId: String) async throws {
         try await postExpectingError("/api/batches/create", CreateBatchBody(name: name, coachId: coachId))
+    }
+
+    // Coach review queue: clips from this coach's swimmers awaiting feedback.
+    struct PendingResponse: Decodable { let pending: [PendingVideo] }
+    func pendingReviewVideos(coachId: String) async throws -> [PendingVideo] {
+        let r: PendingResponse = try await get("/api/video/pending/\(coachId)")
+        return r.pending
+    }
+
+    // Move a swimmer between batches in one step (fromBatchId nil = just add).
+    struct MoveSwimmerBody: Encodable { let swimmerId: String; let fromBatchId: String?; let toBatchId: String }
+    func moveSwimmer(swimmerId: String, fromBatchId: String?, toBatchId: String) async throws {
+        try await postExpectingError("/api/batches/move", MoveSwimmerBody(swimmerId: swimmerId, fromBatchId: fromBatchId, toBatchId: toBatchId))
+    }
+
+    // Remove a swimmer from the coach's roster entirely (unattach).
+    struct UnlinkSwimmerBody: Encodable { let swimmerId: String }
+    func unlinkSwimmer(swimmerId: String) async throws {
+        try await postExpectingError("/api/requests/unlink", UnlinkSwimmerBody(swimmerId: swimmerId))
     }
     struct AvailableResponse: Decodable { let available: [SwimmerRef] }
     func batchAvailableSwimmers(batchId: String, coachId: String) async throws -> [SwimmerRef] {

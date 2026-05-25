@@ -24,8 +24,15 @@ final class AuthManager: ObservableObject {
     private var supabase: SupabaseClient?
     private let redirectURL = URL(string: "com.swiftlap.ios://login-callback")!
     private let storeKey = "currentUser"
+    private let tokenKey = "accessToken"
+    private var storedToken: String?
 
     init() {
+        // Attach a Bearer token to every API request. Prefers the Supabase SDK
+        // session (which auto-refreshes an expired token) once signed in, and
+        // falls back to the last stored token.
+        APIClient.shared.tokenProvider = { [weak self] in await self?.currentAccessToken() }
+        storedToken = UserDefaults.standard.string(forKey: tokenKey)
         #if DEBUG
         // Screenshot/UI-test hook: launch with -uitestSwimmer / -uitestCoach to
         // skip login with a mock profile (fetches return empty → empty states).
@@ -50,7 +57,9 @@ final class AuthManager: ObservableObject {
         await run {
             let resp = try await APIClient.shared.login(email: email, password: password)
             guard let user = resp.user else { throw APIError.server(resp.error ?? "Login failed") }
+            self.storeToken(resp.session?.accessToken)
             self.persist(user)
+            await self.loadSDKSession(resp.session)
         }
     }
 
@@ -59,7 +68,9 @@ final class AuthManager: ObservableObject {
             let resp = try await APIClient.shared.signup(name: name, email: email, password: password, role: role)
             guard let user = resp.user else { throw APIError.server(resp.error ?? "Sign up failed") }
             // Backend returns a session for new signups → log straight in.
+            self.storeToken(resp.session?.accessToken)
             self.persist(user)
+            await self.loadSDKSession(resp.session)
         }
     }
 
@@ -89,7 +100,9 @@ final class AuthManager: ObservableObject {
 
     private func completeOAuth(token: String) async throws {
         let resp = try await APIClient.shared.oauthSync(accessToken: token)
-        if let user = resp.user { persist(user); return }
+        // The Supabase SDK already holds this session (we signed in through it),
+        // so it can refresh the token; store it as a fallback too.
+        if let user = resp.user { storeToken(token); persist(user); return }
         if resp.needsRole == true {
             pendingToken = token
             pendingName = resp.name
@@ -104,6 +117,7 @@ final class AuthManager: ObservableObject {
         await run {
             let resp = try await APIClient.shared.oauthSync(accessToken: token, role: role)
             guard let user = resp.user else { throw APIError.server(resp.error ?? "Sign up failed") }
+            self.storeToken(token)
             self.pendingToken = nil
             self.needsRolePrompt = false
             self.persist(user)
@@ -133,10 +147,36 @@ final class AuthManager: ObservableObject {
 
     func logout() {
         currentUser = nil
+        storeToken(nil)
         UserDefaults.standard.removeObject(forKey: storeKey)
         if let supabase {
             Task { try? await supabase.auth.signOut() }
         }
+    }
+
+    // MARK: - Token
+
+    /// A current access token for API calls. Once signed in, reads from the
+    /// Supabase SDK (auto-refreshing if expired); otherwise the stored token.
+    func currentAccessToken() async -> String? {
+        guard currentUser != nil else { return storedToken }
+        if let client = try? await client(), let session = try? await client.auth.session {
+            return session.accessToken
+        }
+        return storedToken
+    }
+
+    private func storeToken(_ token: String?) {
+        storedToken = token
+        if let token { UserDefaults.standard.set(token, forKey: tokenKey) }
+        else { UserDefaults.standard.removeObject(forKey: tokenKey) }
+    }
+
+    /// Loads the email-login session into the Supabase SDK so it can refresh the
+    /// access token. Best-effort: login still succeeds if Supabase is unreachable.
+    private func loadSDKSession(_ session: Session?) async {
+        guard let session, let refresh = session.refreshToken else { return }
+        try? await client().auth.setSession(accessToken: session.accessToken, refreshToken: refresh)
     }
 
     // MARK: - Helpers

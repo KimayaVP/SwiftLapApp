@@ -72,18 +72,21 @@ Example: `xcrun simctl launch booted com.swiftlap.ios -uitestSwimmer -screen vid
 
 - Email login/signup → backend `/api/auth/*` (signup auto-logs-in).
 - Google → Supabase Swift SDK `signInWithOAuth(.google)`; Apple → native `SignInWithAppleButton` + `signInWithIdToken`. Both exchange the token via backend `/api/auth/oauth-sync` (role prompt for first-time OAuth users).
+- **API auth tokens (since 2026-05-24):** the backend now requires a Bearer token on every `/api` route. `AuthManager` captures the session token on email/OAuth login, hands the session to the Supabase SDK (for auto-refresh), and sets `APIClient.tokenProvider`, which attaches the header to every request (incl. multipart upload). The watch leaves `tokenProvider` nil — it only calls the public `/watch/*` device endpoints.
 - Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.watch` (standalone, WKWatchOnly).
 
 ## Status: milestones M1–M7 done
 
 M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens · M5 coach screens · M6 watch migration (standalone; start-screen scroll bug fixed) · M7 App Store prep (in-app account deletion + privacy policy).
 
+**Coach extras (2026-05-24):** review-notifications **bell** on Coach Home (badge = count of clips awaiting feedback; taps open `PendingReviewView` → swimmer's review screen; backed by `/api/video/pending/:coachId`). Batch management gained **Move to another batch** (`BatchManageView` per-member menu → `/api/batches/move`) and **Remove from My Squad** (`CoachSwimmerView` → `/api/requests/unlink`). New `APIClient` methods: `pendingReviewVideos`, `moveSwimmer`, `unlinkSwimmer`.
+
 ## Open items / next priorities (pick up here)
 
-1. **🔴 Harden backend API auth** — the backend uses the service-role key and trusts client-supplied user IDs (no token verification). Security fix AND the prerequisite for monetization. Highest priority before launch. (Backend work, in `../SwiftLap`.)
+1. ✅ **Backend API auth hardened (2026-05-24)** — token verification + per-resource authorization enforced on the backend; web + iOS now send Bearer tokens. See the Auth section above and `../SwiftLap/CLAUDE.md`. Remaining: per-device tokens for the watch endpoints.
 2. **Move video blobs to Cloudflare R2** (free egress) before user growth.
-3. **Monetization** — free login + subscription. Needs #1 first, then `subscription_status` + server checks + **StoreKit** in-app purchase on iOS (Stripe on web).
-4. **On-device video analysis (Option D)** — long-pole; metrics prototype ~1–2 weeks via Apple Vision body-pose. (Video coach-review "Option A" is already shipped on web + iOS; "AI feedback" is a stub, labeled Beta.)
+3. **Monetization** — free login + subscription. Auth foundation is now in place; add `subscription_status` + server checks + **StoreKit** in-app purchase on iOS (Stripe on web).
+4. **On-device video analysis (Option D)** — long-pole; metrics prototype ~1–2 weeks via Apple Vision body-pose. (Video coach-review "Option A" is already shipped on web + iOS; the "Stroke Analysis" feedback — renamed from "AI feedback" 2026-05-24 — is a stub, labeled Beta.)
 5. **Watch phone-pairing** (WatchConnectivity) — deferred; needs companion setup + real devices.
 
 ### Config / human steps still pending (need father / account holder)

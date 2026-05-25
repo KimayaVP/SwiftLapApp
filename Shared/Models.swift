@@ -24,9 +24,11 @@ struct Profile: Codable, Identifiable, Hashable {
     var isCoach: Bool { role == "coach" }
 }
 
-/// Supabase session returned by login/signup. We only need the access token.
+/// Supabase session returned by login/signup. The refresh token lets us hand
+/// the session to the Supabase SDK so it can auto-refresh an expired access token.
 struct Session: Codable {
     let accessToken: String
+    let refreshToken: String?
 }
 
 /// Unified shape for /auth/login, /auth/signup and /auth/oauth-sync.
@@ -141,6 +143,15 @@ struct CoachSwimmer: Codable, Identifiable {
 struct CoachDashboard: Codable {
     let swimmers: [CoachSwimmer]
     let summary: CoachSummary
+}
+
+/// A swimmer's uploaded clip still awaiting coach feedback (review queue / bell).
+struct PendingVideo: Codable, Identifiable {
+    let id: String
+    let swimmerId: String
+    let swimmerName: String
+    let stroke: String
+    let createdAt: String?
 }
 
 // MARK: - Watch
