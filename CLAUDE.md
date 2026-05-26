@@ -6,7 +6,7 @@ Guidance for Claude Code when working in this repo.
 
 Native **SwiftUI** apps that mirror the SwiftLap web app, for swimmers and coaches:
 - **iOS app** (`SwiftLap/` target) — full swimmer + coach experience.
-- **watchOS app** (`Watch/` target) — standalone swim tracker (migrated from the old `SwiftLapWatch` repo, which this supersedes).
+- **watchOS app** (`Watch/` target) — swim tracker, **embedded in the iOS app** but **independent** (`WKRunsIndependentlyOfCompanionApp`): ships in one App Store listing, installs onto the paired watch with the iPhone app, yet still runs without it. (Migrated from the old `SwiftLapWatch` repo, which this supersedes.)
 
 Both are clients of the **existing Express/Supabase backend** at `https://swiftlap.onrender.com` (repo: `KimayaVP/SwiftLap`, sibling folder `../SwiftLap`). We did **not** rewrite the backend — the apps call the same REST API the website does.
 
@@ -28,7 +28,7 @@ SwiftLapApp/
 │   │                    #   Achievements, Friends, Settings, Video views
 │   └── Coach/           # Home, Overview, Leaderboard, Batches, Recommend,
 │                        #   Assign, Invite views
-├── Watch/               # watchOS app target (standalone) + WorkoutManager (HealthKit)
+├── Watch/               # watchOS app target (embedded + independent) + WorkoutManager (HealthKit)
 └── Shared/              # Models.swift, APIClient.swift, AppConfig, Formatting,
                          #   RemoteConfig — compiled into BOTH iOS and watch targets
 ```
@@ -73,11 +73,11 @@ Example: `xcrun simctl launch booted com.swiftlap.ios -uitestSwimmer -screen vid
 - Email login/signup → backend `/api/auth/*` (signup auto-logs-in).
 - Google → Supabase Swift SDK `signInWithOAuth(.google)`; Apple → native `SignInWithAppleButton` + `signInWithIdToken`. Both exchange the token via backend `/api/auth/oauth-sync` (role prompt for first-time OAuth users).
 - **API auth tokens (since 2026-05-24):** the backend now requires a Bearer token on every `/api` route. `AuthManager` captures the session token on email/OAuth login, hands the session to the Supabase SDK (for auto-refresh), and sets `APIClient.tokenProvider`, which attaches the header to every request (incl. multipart upload). The watch leaves `tokenProvider` nil — it only calls the public `/watch/*` device endpoints.
-- Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.watch` (standalone, WKWatchOnly).
+- Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.ios.watchkitapp` (embedded in the iOS app, `WKCompanionAppBundleIdentifier` + `WKRunsIndependentlyOfCompanionApp`). Dev team `98QNV4FG3G` baked into `project.yml`.
 
 ## Status: milestones M1–M7 done
 
-M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens · M5 coach screens · M6 watch migration (standalone; start-screen scroll bug fixed) · M7 App Store prep (in-app account deletion + privacy policy).
+M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens · M5 coach screens · M6 watch migration (embedded + independent; start-screen scroll bug fixed) · M7 App Store prep (in-app account deletion + privacy policy).
 
 **Coach extras (2026-05-24):** review-notifications **bell** on Coach Home (badge = count of clips awaiting feedback; taps open `PendingReviewView` → swimmer's review screen; backed by `/api/video/pending/:coachId`). Batch management gained **Move to another batch** (`BatchManageView` per-member menu → `/api/batches/move`) and **Remove from My Squad** (`CoachSwimmerView` → `/api/requests/unlink`). New `APIClient` methods: `pendingReviewVideos`, `moveSwimmer`, `unlinkSwimmer`.
 

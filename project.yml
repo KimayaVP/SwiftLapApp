@@ -22,6 +22,8 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+      - target: SwiftLapWatch
+        embed: true
     info:
       path: SwiftLap/Info.plist
       properties:
@@ -55,7 +57,8 @@ targets:
       path: Watch/Info.plist
       properties:
         WKApplication: true
-        WKWatchOnly: true
+        WKCompanionAppBundleIdentifier: com.swiftlap.ios
+        WKRunsIndependentlyOfCompanionApp: true
         NSHealthShareUsageDescription: "SwiftLap reads your heart rate, swim strokes, and distance to count your laps and tell you when you're getting tired."
         NSHealthUpdateUsageDescription: "SwiftLap saves your swim workouts to the Health app so they show up alongside your other activity."
     entitlements:
@@ -64,7 +67,7 @@ targets:
         com.apple.developer.healthkit: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.swiftlap.watch
+        PRODUCT_BUNDLE_IDENTIFIER: com.swiftlap.ios.watchkitapp
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic
