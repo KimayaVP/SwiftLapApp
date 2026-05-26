@@ -83,7 +83,7 @@ M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens ·
 
 ## Open items / next priorities (pick up here)
 
-1. ✅ **Backend API auth hardened (2026-05-24)** — token verification + per-resource authorization enforced on the backend; web + iOS now send Bearer tokens. See the Auth section above and `../SwiftLap/CLAUDE.md`. Remaining: per-device tokens for the watch endpoints.
+1. ✅ **Backend API auth hardened (2026-05-24)** — token verification + per-resource authorization enforced on the backend; web + iOS send Bearer tokens; the **watch authenticates with a per-device HMAC token** (2026-05-25, stored in `WatchStore`, sent on workout syncs). See the Auth section above and `../SwiftLap/CLAUDE.md`.
 2. **Move video blobs to Cloudflare R2** (free egress) before user growth.
 3. **Monetization** — free login + subscription. Auth foundation is now in place; add `subscription_status` + server checks + **StoreKit** in-app purchase on iOS (Stripe on web).
 4. **On-device video analysis (Option D)** — long-pole; metrics prototype ~1–2 weeks via Apple Vision body-pose. (Video coach-review "Option A" is already shipped on web + iOS; the "Stroke Analysis" feedback — renamed from "AI feedback" 2026-05-24 — is a stub, labeled Beta.)
