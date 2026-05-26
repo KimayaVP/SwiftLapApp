@@ -75,14 +75,14 @@ struct VideoView: View {
             } header: {
                 HStack(spacing: 6) {
                     Text("Stroke Analysis")
-                    Text("BETA")
+                    Text("DEMO")
                         .font(.caption2.weight(.bold))
                         .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Color.orange))
+                        .background(Capsule().fill(Color.gray))
                         .foregroundStyle(.white)
                 }
             } footer: {
-                Text("Automated feedback is an early preview — not real video analysis yet.")
+                Text("Demonstration only — this shows sample technique notes, not real analysis of your video yet.")
             }
 
             Section("Coach Feedback") {
