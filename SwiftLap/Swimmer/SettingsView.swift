@@ -30,6 +30,11 @@ struct SettingsView: View {
                     Button("Generate New Code") { Task { await genCode() } }
                     Button("Unlink Watch", role: .destructive) { Task { await unlink() } }
                 } else {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Get SwiftLap on your Apple Watch").font(.caption.weight(.semibold))
+                        Text("It usually installs automatically with this app. If it's not there, open the Watch app on your iPhone → Available Apps → install SwiftLap. Then open it on your watch and enter a code below.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
                     Text("No watch linked yet. Generate a code and enter it on your Apple Watch.")
                         .font(.caption).foregroundStyle(.secondary)
                     Button("Generate Watch Code") { Task { await genCode() } }
