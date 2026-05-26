@@ -458,11 +458,12 @@ extension APIClient {
 
     // Watch app: link via 6-digit code, and send a workout
     struct VerifyCodeBody: Encodable { let code: String }
-    struct VerifyCodeResponse: Decodable { let swimmerId: String?; let error: String? }
-    func verifyWatchCode(_ code: String) async throws -> String {
+    struct VerifyCodeResponse: Decodable { let swimmerId: String?; let watchToken: String?; let error: String? }
+    /// Returns the linked swimmer id and a device token to authenticate future syncs.
+    func verifyWatchCode(_ code: String) async throws -> (swimmerId: String, watchToken: String?) {
         let r: VerifyCodeResponse = try await post("/api/watch/verify-code", VerifyCodeBody(code: code))
         guard let id = r.swimmerId else { throw APIError.server(r.error ?? "Invalid code") }
-        return id
+        return (id, r.watchToken)
     }
 
     struct WatchWorkoutBody: Encodable {
@@ -470,9 +471,10 @@ extension APIClient {
         let strokeCount: Int; let avgHeartRate: Double; let calories: Double
         let lapTimes: [Double]; let lapStrokes: [Int]; let fatigueLevel: String
         let poolLength: Double; let date: String; let source: String
+        let watchToken: String?
     }
-    func sendWatchWorkout(swimmerId: String, duration: Int, distance: Double, laps: Int, strokeCount: Int, avgHeartRate: Double, calories: Double, lapTimes: [Double], lapStrokes: [Int], fatigueLevel: String, poolLength: Double) async throws {
-        let body = WatchWorkoutBody(swimmerId: swimmerId, duration: duration, distance: distance, laps: laps, strokeCount: strokeCount, avgHeartRate: avgHeartRate, calories: calories, lapTimes: lapTimes, lapStrokes: lapStrokes, fatigueLevel: fatigueLevel, poolLength: poolLength, date: ISO8601DateFormatter().string(from: Date()), source: "apple_watch")
+    func sendWatchWorkout(swimmerId: String, duration: Int, distance: Double, laps: Int, strokeCount: Int, avgHeartRate: Double, calories: Double, lapTimes: [Double], lapStrokes: [Int], fatigueLevel: String, poolLength: Double, watchToken: String?) async throws {
+        let body = WatchWorkoutBody(swimmerId: swimmerId, duration: duration, distance: distance, laps: laps, strokeCount: strokeCount, avgHeartRate: avgHeartRate, calories: calories, lapTimes: lapTimes, lapStrokes: lapStrokes, fatigueLevel: fatigueLevel, poolLength: poolLength, date: ISO8601DateFormatter().string(from: Date()), source: "apple_watch", watchToken: watchToken)
         try await postExpectingError("/api/watch/workout", body)
     }
 }

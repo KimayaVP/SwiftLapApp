@@ -42,8 +42,9 @@ struct WatchLoginView: View {
         error = nil
         Task {
             do {
-                let id = try await APIClient.shared.verifyWatchCode(code)
-                WatchStore.setSwimmerId(id)
+                let link = try await APIClient.shared.verifyWatchCode(code)
+                WatchStore.setSwimmerId(link.swimmerId)
+                WatchStore.setWatchToken(link.watchToken)
                 isLoggedIn = true
             } catch {
                 self.error = (error as? APIError)?.errorDescription ?? "Invalid code"

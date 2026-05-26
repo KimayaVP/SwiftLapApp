@@ -203,7 +203,8 @@ class WorkoutManager: NSObject, ObservableObject {
                     swimmerId: swimmerId,
                     duration: snapshot.0, distance: snapshot.1, laps: snapshot.2,
                     strokeCount: snapshot.3, avgHeartRate: snapshot.4, calories: snapshot.5,
-                    lapTimes: snapshot.6, lapStrokes: snapshot.7, fatigueLevel: snapshot.8, poolLength: snapshot.9
+                    lapTimes: snapshot.6, lapStrokes: snapshot.7, fatigueLevel: snapshot.8, poolLength: snapshot.9,
+                    watchToken: WatchStore.watchToken()
                 )
                 print("Workout synced to SwiftLap!")
             } catch {
