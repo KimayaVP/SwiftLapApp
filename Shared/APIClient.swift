@@ -239,9 +239,26 @@ extension APIClient {
         let r: MeetsResponse = try await get("/api/meets/\(swimmerId)")
         return r.meets
     }
-    struct CreateMeetBody: Encodable { let name: String; let date: String?; let location: String?; let swimmerId: String }
-    func createMeet(swimmerId: String, name: String, date: String?, location: String?) async throws {
-        try await postExpectingError("/api/meets/create", CreateMeetBody(name: name, date: date, location: location, swimmerId: swimmerId))
+    // One event of a meet. For an upcoming meet set expectedMinutes/Seconds; for a
+    // past meet set minutes/seconds. Nil optionals are omitted from the JSON.
+    struct MeetEventInput: Encodable {
+        let stroke: String
+        let distance: Int
+        var expectedMinutes: Int?
+        var expectedSeconds: Int?
+        var minutes: Int?
+        var seconds: Int?
+    }
+    struct CreateMeetBody: Encodable { let name: String; let date: String?; let location: String?; let events: [MeetEventInput]; let swimmerId: String }
+    struct CreateMeetResponse: Decodable { let meet: Meet? }
+    @discardableResult
+    func createMeet(swimmerId: String, name: String, date: String?, location: String?, events: [MeetEventInput]) async throws -> Meet? {
+        let r: CreateMeetResponse = try await post("/api/meets/create", CreateMeetBody(name: name, date: date, location: location, events: events, swimmerId: swimmerId))
+        return r.meet
+    }
+    struct LogResultBody: Encodable { let resultId: String; let minutes: Int; let seconds: Int; let place: Int?; let medal: String?; let swimmerId: String }
+    func logMeetResult(resultId: String, minutes: Int, seconds: Int, place: Int?, medal: String?, swimmerId: String) async throws {
+        try await postExpectingError("/api/meets/log-result", LogResultBody(resultId: resultId, minutes: minutes, seconds: seconds, place: place, medal: medal, swimmerId: swimmerId))
     }
     struct RecRespondBody: Encodable { let recommendationId: String; let status: String; let swimmerId: String }
     func respondMeetRecommendation(recommendationId: String, status: String, swimmerId: String) async throws {
@@ -267,8 +284,12 @@ extension APIClient {
         return r.groups
     }
     struct CreateGroupBody: Encodable { let name: String; let swimmerId: String }
-    func createGroup(name: String, swimmerId: String) async throws {
-        try await postExpectingError("/api/groups/create", CreateGroupBody(name: name, swimmerId: swimmerId))
+    struct CreateGroupResponse: Decodable { let group: FriendGroup? }
+    /// Returns the new group's invite code so the UI can show it right away.
+    @discardableResult
+    func createGroup(name: String, swimmerId: String) async throws -> String? {
+        let r: CreateGroupResponse = try await post("/api/groups/create", CreateGroupBody(name: name, swimmerId: swimmerId))
+        return r.group?.inviteCode
     }
     struct JoinGroupBody: Encodable { let code: String; let swimmerId: String }
     func joinGroup(code: String, swimmerId: String) async throws {
@@ -277,6 +298,16 @@ extension APIClient {
     func groupLeaderboard(groupId: String) async throws -> [LeaderboardEntry] {
         let r: LeaderboardResponse = try await get("/api/groups/\(groupId)/leaderboard")
         return r.leaderboard
+    }
+
+    // Notifications (in-app inbox)
+    struct NotificationsResponse: Decodable { let notifications: [AppNotification]; let unread: Int }
+    func fetchNotifications(userId: String) async throws -> NotificationsResponse {
+        try await get("/api/notifications/\(userId)")
+    }
+    struct MarkReadBody: Encodable { let id: String? }
+    func markNotificationsRead(id: String? = nil) async throws {
+        try await postExpectingError("/api/notifications/read", MarkReadBody(id: id))
     }
 
     // Video & feedback

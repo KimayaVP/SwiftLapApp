@@ -79,7 +79,13 @@ Example: `xcrun simctl launch booted com.swiftlap.ios -uitestSwimmer -screen vid
 
 M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens · M5 coach screens · M6 watch migration (embedded + independent; start-screen scroll bug fixed) · M7 App Store prep (in-app account deletion + privacy policy).
 
-**Coach extras (2026-05-24):** review-notifications **bell** on Coach Home (badge = count of clips awaiting feedback; taps open `PendingReviewView` → swimmer's review screen; backed by `/api/video/pending/:coachId`). Batch management gained **Move to another batch** (`BatchManageView` per-member menu → `/api/batches/move`) and **Remove from My Squad** (`CoachSwimmerView` → `/api/requests/unlink`). New `APIClient` methods: `pendingReviewVideos`, `moveSwimmer`, `unlinkSwimmer`.
+**Coach extras (2026-05-24):** review-notifications **bell** on Coach Home (badge = count of clips awaiting feedback; taps open `PendingReviewView` → swimmer's review screen; backed by `/api/video/pending/:coachId`). Batch management gained **Move to another batch** (`BatchManageView` per-member menu → `/api/batches/move`) and **Remove from My Squad** (`CoachSwimmerView` → `/api/requests/unlink`). New `APIClient` methods: `pendingReviewVideos`, `moveSwimmer`, `unlinkSwimmer`. (The coach's video-review button icon changed to `play.rectangle` to make room for the new notifications bell.)
+
+**Meets rework + notifications (2026-05-27):**
+- **Meets & Races** (`MeetsView.swift`) — meets now hold **multiple events**; the create sheet adds events with an **expected time** (when the date is today/future) or **your time** (past), and shows an upcoming/over/all **filter**. Upcoming events show "Log time" → fills the actual via `/api/meets/log-result` (flows into Recent Times). `Meet` gained `status`/`eventCount`/`pendingCount`; `MeetResult.timeSeconds` is now optional + has `expectedSeconds`. New `APIClient`: `createMeet(...events:)`, `logMeetResult(...)`, `MeetEventInput`.
+- **Local reminder** (`LocalNotifications.swift`, iOS-only, `UserNotifications`) — creating an upcoming meet schedules an on-device notification for ~9am the day after to log times. Works on the free Personal Team (no APNs). Permission requested on first upcoming-meet create.
+- **Notifications inbox** (`NotificationsView.swift`) — `NotificationsBell` (bell + unread badge) added to both swimmer & coach home toolbars; opens `NotificationsView` (marks all read on open). Backed by `/api/notifications`. New `APIClient`: `fetchNotifications`, `markNotificationsRead`; model `AppNotification`. **Remote push (APNs) is deferred until the org team** — this is the in-app foundation.
+- **Tooling:** `project.yml` now defines explicit **schemes** (so `xcodebuild -scheme SwiftLap` is deterministic after regen). NOTE: this scheme block + the temp Personal-Team edits are all uncommitted in `project.yml` — when reverting the Personal-Team hack, revert **surgically** (don't `git restore` the whole file, or you'll lose the schemes block).
 
 ## Open items / next priorities (pick up here)
 
@@ -92,7 +98,9 @@ M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens ·
 ### Config / human steps still pending (need father / account holder)
 - Real **1024px app icon** (assets are placeholders).
 - Register `com.swiftlap.ios` as an **App ID with Sign in with Apple**; set up **code signing**; create **App Store Connect** record + screenshots + submit.
-- Add Supabase redirect URL `com.swiftlap.ios://login-callback` (to test Google).
+- ✅ Supabase redirect URL `com.swiftlap.ios://login-callback` is configured — **Google sign-in verified working on a real iPhone (2026-05-27)**.
+
+> **Personal-Team test build (2026-05-27):** the org team (`98QNV4FG3G`, "Vishal Parwani Lakshmichand") doesn't appear in Xcode's signing dropdown — only Kimaya's free Personal Team, which can't sign **Sign in with Apple** or **HealthKit**. To install on a real iPhone for testing, `project.yml` has **temporary, uncommitted** local edits: Apple-sign-in entitlement commented out, watch un-embedded, iOS `DEVELOPMENT_TEAM` cleared, and bundle id changed to `com.swiftlap.iostest`. **Revert all of these (git restore project.yml + regenerate) once the org team works.** Org-team fix is pending the account holder (father) confirming the membership is Active + accepting any developer-portal agreement.
 
 ## Conventions
 - Each new screen: a SwiftUI View that loads from `APIClient` (async/await), shows loading/empty states.

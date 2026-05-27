@@ -33,9 +33,10 @@ struct CoachHomeView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("👨‍🏫 Coach").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
+                ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showReview = true } label: {
-                        Image(systemName: "bell")
+                        Image(systemName: "play.rectangle")
                             .overlay(alignment: .topTrailing) {
                                 if pendingCount > 0 {
                                     Text(pendingCount > 9 ? "9+" : "\(pendingCount)")

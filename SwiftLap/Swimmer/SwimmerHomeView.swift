@@ -45,6 +45,7 @@ struct SwimmerHomeView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("🏊 Swimmer").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 }
+                ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         NavigationLink { SettingsView() } label: { Label("Settings", systemImage: "gearshape") }

@@ -12,6 +12,11 @@ struct MeetsView: View {
     @State private var meets: [Meet] = []
     @State private var loading = true
     @State private var showAddMeet = false
+    @State private var filter = "all"   // all | upcoming | over
+
+    private var filteredMeets: [Meet] {
+        filter == "all" ? meets : meets.filter { ($0.status ?? "over") == filter }
+    }
 
     var body: some View {
         List {
@@ -37,24 +42,23 @@ struct MeetsView: View {
                 }
             }
 
+            Section {
+                Picker("Filter", selection: $filter) {
+                    Text("All").tag("all")
+                    Text("Upcoming").tag("upcoming")
+                    Text("Over").tag("over")
+                }
+                .pickerStyle(.segmented)
+            }
+
             Section("Meets & Races") {
                 if loading {
                     ProgressView()
-                } else if meets.isEmpty {
-                    Text("No meets yet").foregroundStyle(.secondary)
+                } else if filteredMeets.isEmpty {
+                    Text(filter == "all" ? "No meets yet" : "No \(filter) meets").foregroundStyle(.secondary)
                 } else {
-                    ForEach(meets) { m in
-                        NavigationLink { MeetDetailView(meet: m) } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(m.name).font(.subheadline.weight(.medium))
-                                HStack(spacing: 6) {
-                                    if let d = m.date { Text(d) }
-                                    if let loc = m.location, !loc.isEmpty { Text("· \(loc)") }
-                                    Text("· \(m.resultCount ?? 0) result\((m.resultCount ?? 0) == 1 ? "" : "s")")
-                                }
-                                .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
+                    ForEach(filteredMeets) { m in
+                        NavigationLink { MeetDetailView(meet: m) } label: { meetRow(m) }
                     }
                 }
             }
@@ -66,11 +70,39 @@ struct MeetsView: View {
             }
         }
         .sheet(isPresented: $showAddMeet) {
-            AddMeetSheet { name, date, location in
-                await createMeet(name: name, date: date, location: location)
+            AddMeetSheet { name, date, location, events in
+                await createMeet(name: name, date: date, location: location, events: events)
             }
         }
         .task { await load() }
+    }
+
+    @ViewBuilder
+    private func meetRow(_ m: Meet) -> some View {
+        let isUpcoming = (m.status ?? "over") == "upcoming"
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(m.name).font(.subheadline.weight(.medium))
+                Text(isUpcoming ? "Upcoming" : "Over")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(isUpcoming ? Color.cyan.opacity(0.25) : Color.secondary.opacity(0.2))
+                    .clipShape(Capsule())
+            }
+            HStack(spacing: 6) {
+                if let d = m.date { Text(d) }
+                if let loc = m.location, !loc.isEmpty { Text("· \(loc)") }
+                if isUpcoming {
+                    Text("· \(m.eventCount ?? 0) event\((m.eventCount ?? 0) == 1 ? "" : "s")")
+                } else {
+                    Text("· \(m.resultCount ?? 0)/\(m.eventCount ?? 0) logged")
+                    if (m.pendingCount ?? 0) > 0 {
+                        Text("· \(m.pendingCount ?? 0) to log").foregroundStyle(.orange)
+                    }
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     private func load() async {
@@ -88,30 +120,90 @@ struct MeetsView: View {
         await load()
     }
 
-    private func createMeet(name: String, date: String?, location: String?) async {
+    private func createMeet(name: String, date: String?, location: String?, events: [APIClient.MeetEventInput]) async {
         guard let id = auth.currentUser?.id else { return }
-        try? await APIClient.shared.createMeet(swimmerId: id, name: name, date: date, location: location)
+        let meet = try? await APIClient.shared.createMeet(swimmerId: id, name: name, date: date, location: location, events: events)
+        // For an upcoming meet, schedule a local reminder to log times the day after.
+        if let meet, let dateStr = date, let d = parseISODate(dateStr),
+           d >= Calendar.current.startOfDay(for: Date()) {
+            await LocalNotifications.requestPermission()
+            LocalNotifications.scheduleMeetLogReminder(meetName: name, meetDate: d, meetId: meet.id)
+        }
         await load()
     }
 }
 
-// MARK: - Add meet
+// MARK: - Add meet (with multiple events)
 
 private struct AddMeetSheet: View {
     @Environment(\.dismiss) var dismiss
-    let onCreate: (String, String?, String?) async -> Void
+    let onCreate: (String, String?, String?, [APIClient.MeetEventInput]) async -> Void
 
     @State private var name = ""
     @State private var date = Date()
     @State private var location = ""
+    @State private var events: [DraftEvent] = []
+    @State private var stroke = "Freestyle"
+    @State private var distance = 50
+    @State private var minutes = ""
+    @State private var seconds = ""
     @State private var saving = false
+
+    private struct DraftEvent: Identifiable {
+        let id = UUID()
+        var stroke: String
+        var distance: Int
+        var minutes: Int
+        var seconds: Int
+    }
+
+    private var isUpcoming: Bool {
+        Calendar.current.startOfDay(for: date) >= Calendar.current.startOfDay(for: Date())
+    }
+    private var timeLabel: String { isUpcoming ? "Expected time" : "Your time" }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Meet name", text: $name)
-                DatePicker("Date", selection: $date, displayedComponents: .date)
-                TextField("Location", text: $location)
+                Section {
+                    TextField("Meet name", text: $name)
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                    TextField("Location (optional)", text: $location)
+                }
+
+                Section {
+                    if events.isEmpty {
+                        Text(isUpcoming
+                             ? "Add the events you're swimming, with your expected/goal time."
+                             : "Add the events you swam, with the time you did.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        ForEach(events) { e in
+                            HStack {
+                                Text("\(e.stroke) \(e.distance)m")
+                                Spacer()
+                                if e.minutes > 0 || e.seconds > 0 {
+                                    Text("\(isUpcoming ? "exp " : "")\(formatLapTime(Double(e.minutes * 60 + e.seconds)))")
+                                        .foregroundStyle(.secondary).monospacedDigit()
+                                }
+                            }
+                        }
+                        .onDelete { events.remove(atOffsets: $0) }
+                    }
+                } header: { Text("Events") }
+
+                Section("Add event") {
+                    Picker("Stroke", selection: $stroke) { ForEach(strokeOptions, id: \.self) { Text($0) } }
+                    Picker("Distance", selection: $distance) { ForEach(distanceOptions, id: \.self) { Text("\($0)m").tag($0) } }
+                    HStack {
+                        Text(timeLabel).foregroundStyle(.secondary)
+                        Spacer()
+                        TextField("Min", text: $minutes).keyboardType(.numberPad).frame(width: 50).multilineTextAlignment(.trailing)
+                        Text(":").foregroundStyle(.secondary)
+                        TextField("Sec", text: $seconds).keyboardType(.numberPad).frame(width: 50)
+                    }
+                    Button("Add event") { addEvent() }
+                }
             }
             .navigationTitle("Add Meet")
             .toolbar {
@@ -120,12 +212,33 @@ private struct AddMeetSheet: View {
                     Button("Create") {
                         saving = true
                         Task {
-                            await onCreate(name, isoDate(date), location.isEmpty ? nil : location)
+                            await onCreate(name, isoDate(date), location.isEmpty ? nil : location, mappedEvents())
                             dismiss()
                         }
                     }
                     .disabled(name.isEmpty || saving)
                 }
+            }
+        }
+    }
+
+    private func addEvent() {
+        events.append(DraftEvent(stroke: stroke, distance: distance,
+                                 minutes: Int(minutes) ?? 0, seconds: Int(seconds) ?? 0))
+        minutes = ""; seconds = ""
+    }
+
+    // Map drafts to API inputs: expected times for upcoming meets, actual otherwise.
+    private func mappedEvents() -> [APIClient.MeetEventInput] {
+        events.map { e in
+            if isUpcoming {
+                return APIClient.MeetEventInput(stroke: e.stroke, distance: e.distance,
+                                                expectedMinutes: e.minutes, expectedSeconds: e.seconds,
+                                                minutes: nil, seconds: nil)
+            } else {
+                return APIClient.MeetEventInput(stroke: e.stroke, distance: e.distance,
+                                                expectedMinutes: nil, expectedSeconds: nil,
+                                                minutes: e.minutes, seconds: e.seconds)
             }
         }
     }
@@ -139,58 +252,61 @@ struct MeetDetailView: View {
 
     @State private var results: [MeetResult] = []
     @State private var loading = true
-    @State private var stroke = "Freestyle"
-    @State private var distance = 50
-    @State private var minutes = ""
-    @State private var seconds = ""
-    @State private var place = ""
-    @State private var medal = ""
-    @State private var saving = false
-
-    private let medals = ["", "gold", "silver", "bronze"]
+    @State private var logging: MeetResult?
 
     var body: some View {
         List {
-            Section("Results") {
+            Section("Events") {
                 if loading {
                     ProgressView()
                 } else if results.isEmpty {
-                    Text("No results yet").foregroundStyle(.secondary)
+                    Text("No events yet").foregroundStyle(.secondary)
                 } else {
-                    ForEach(results) { r in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(r.stroke) \(r.distance)m").font(.subheadline.weight(.medium))
-                                if let p = r.place { Text("Place: \(p)").font(.caption).foregroundStyle(.secondary) }
-                            }
-                            Spacer()
-                            if r.isPb == true { Text("PB").font(.caption2).foregroundStyle(.green) }
-                            Text(medalEmoji(r.medal))
-                            Text(formatLapTime(r.timeSeconds)).font(.headline).monospacedDigit()
-                        }
-                    }
+                    ForEach(results) { r in resultRow(r) }
                 }
             }
-            Section("Add Race Result") {
-                Picker("Stroke", selection: $stroke) { ForEach(strokeOptions, id: \.self) { Text($0) } }
-                Picker("Distance", selection: $distance) { ForEach(distanceOptions, id: \.self) { Text("\($0)m").tag($0) } }
-                HStack {
-                    TextField("Min", text: $minutes).keyboardType(.numberPad)
-                    Text(":").foregroundStyle(.secondary)
-                    TextField("Sec", text: $seconds).keyboardType(.numberPad)
-                }
-                TextField("Place (optional)", text: $place).keyboardType(.numberPad)
-                Picker("Medal", selection: $medal) {
-                    ForEach(medals, id: \.self) { Text($0.isEmpty ? "None" : $0.capitalized).tag($0) }
-                }
-                Button { Task { await addResult() } } label: {
-                    if saving { ProgressView() } else { Text("Add Result") }
-                }.disabled(saving)
+            Section("Add another event") {
+                AddResultInline(meetId: meet.id) { await load() }
             }
         }
         .navigationTitle(meet.name)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $logging) { ev in
+            LogResultSheet(event: ev) { minutes, seconds, place, medal in
+                await logResult(ev, minutes: minutes, seconds: seconds, place: place, medal: medal)
+            }
+        }
         .task { await load() }
+    }
+
+    @ViewBuilder
+    private func resultRow(_ r: MeetResult) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(r.stroke) \(r.distance)m").font(.subheadline.weight(.medium))
+                if r.timeSeconds == nil {
+                    if let e = r.expectedSeconds {
+                        Text("Expected: \(formatLapTime(e))").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("No expected time").font(.caption).foregroundStyle(.secondary)
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        if let p = r.place { Text("Place: \(p)") }
+                        if let e = r.expectedSeconds { Text("· exp \(formatLapTime(e))") }
+                    }.font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if let t = r.timeSeconds {
+                if r.isPb == true { Text("PB").font(.caption2).foregroundStyle(.green) }
+                Text(medalEmoji(r.medal))
+                Text(formatLapTime(t)).font(.headline).monospacedDigit()
+            } else {
+                Button("Log time") { logging = r }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            }
+        }
     }
 
     private func medalEmoji(_ m: String?) -> String {
@@ -202,16 +318,116 @@ struct MeetDetailView: View {
         loading = true
         results = (try? await APIClient.shared.fetchMeetResults(meetId: meet.id, swimmerId: id)) ?? []
         loading = false
+        // If everything's logged, drop the reminder.
+        if results.allSatisfy({ $0.timeSeconds != nil }) {
+            LocalNotifications.cancelMeetLogReminder(meetId: meet.id)
+        }
     }
 
-    private func addResult() async {
+    private func logResult(_ r: MeetResult, minutes: Int, seconds: Int, place: Int?, medal: String?) async {
+        guard let id = auth.currentUser?.id else { return }
+        try? await APIClient.shared.logMeetResult(resultId: r.id, minutes: minutes, seconds: seconds, place: place, medal: medal, swimmerId: id)
+        await load()
+    }
+}
+
+// MARK: - Log an existing (expected) event's actual time
+
+private struct LogResultSheet: View {
+    @Environment(\.dismiss) var dismiss
+    let event: MeetResult
+    let onSave: (Int, Int, Int?, String?) async -> Void
+
+    @State private var minutes = ""
+    @State private var seconds = ""
+    @State private var place = ""
+    @State private var medal = ""
+    @State private var saving = false
+
+    private let medals = ["", "gold", "silver", "bronze"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("\(event.stroke) \(event.distance)m").font(.headline)
+                    if let e = event.expectedSeconds {
+                        Text("Expected: \(formatLapTime(e))").foregroundStyle(.secondary)
+                    }
+                }
+                Section("Your time") {
+                    HStack {
+                        TextField("Min", text: $minutes).keyboardType(.numberPad)
+                        Text(":").foregroundStyle(.secondary)
+                        TextField("Sec", text: $seconds).keyboardType(.numberPad)
+                    }
+                    TextField("Place (optional)", text: $place).keyboardType(.numberPad)
+                    Picker("Medal", selection: $medal) {
+                        ForEach(medals, id: \.self) { Text($0.isEmpty ? "None" : $0.capitalized).tag($0) }
+                    }
+                }
+            }
+            .navigationTitle("Log Time")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        let m = Int(minutes) ?? 0, s = Int(seconds) ?? 0
+                        guard m > 0 || s > 0 else { return }
+                        saving = true
+                        Task {
+                            await onSave(m, s, Int(place), medal.isEmpty ? nil : medal)
+                            dismiss()
+                        }
+                    }.disabled(saving)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Add a brand-new event result inline (within meet detail)
+
+private struct AddResultInline: View {
+    let meetId: String
+    let onAdded: () async -> Void
+    @EnvironmentObject var auth: AuthManager
+
+    @State private var stroke = "Freestyle"
+    @State private var distance = 50
+    @State private var minutes = ""
+    @State private var seconds = ""
+    @State private var place = ""
+    @State private var medal = ""
+    @State private var saving = false
+    private let medals = ["", "gold", "silver", "bronze"]
+
+    var body: some View {
+        Picker("Stroke", selection: $stroke) { ForEach(strokeOptions, id: \.self) { Text($0) } }
+        Picker("Distance", selection: $distance) { ForEach(distanceOptions, id: \.self) { Text("\($0)m").tag($0) } }
+        HStack {
+            TextField("Min", text: $minutes).keyboardType(.numberPad)
+            Text(":").foregroundStyle(.secondary)
+            TextField("Sec", text: $seconds).keyboardType(.numberPad)
+        }
+        TextField("Place (optional)", text: $place).keyboardType(.numberPad)
+        Picker("Medal", selection: $medal) {
+            ForEach(medals, id: \.self) { Text($0.isEmpty ? "None" : $0.capitalized).tag($0) }
+        }
+        Button { Task { await add() } } label: {
+            if saving { ProgressView() } else { Text("Add Result") }
+        }.disabled(saving)
+    }
+
+    private func add() async {
         guard let id = auth.currentUser?.id else { return }
         let m = Int(minutes) ?? 0, s = Int(seconds) ?? 0
         guard m > 0 || s > 0 else { return }
         saving = true
-        try? await APIClient.shared.addRaceResult(meetId: meet.id, swimmerId: id, stroke: stroke, distance: distance, minutes: m, seconds: s, place: Int(place), medal: medal.isEmpty ? nil : medal)
+        try? await APIClient.shared.addRaceResult(meetId: meetId, swimmerId: id, stroke: stroke, distance: distance, minutes: m, seconds: s, place: Int(place), medal: medal.isEmpty ? nil : medal)
         minutes = ""; seconds = ""; place = ""; medal = ""
-        await load()
+        await onAdded()
         saving = false
     }
 }
@@ -220,4 +436,11 @@ private func isoDate(_ date: Date) -> String {
     let f = DateFormatter()
     f.dateFormat = "yyyy-MM-dd"
     return f.string(from: date)
+}
+
+private func parseISODate(_ s: String) -> Date? {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    f.timeZone = .current
+    return f.date(from: s)
 }

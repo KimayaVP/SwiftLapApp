@@ -12,6 +12,8 @@ struct FriendsView: View {
     @State private var loading = true
     @State private var showCreate = false
     @State private var showJoin = false
+    @State private var createdCode: String?      // set after creating; shown once the sheet closes
+    @State private var showCreatedAlert = false
 
     var body: some View {
         List {
@@ -25,7 +27,7 @@ struct FriendsView: View {
                         NavigationLink { GroupLeaderboardView(group: g) } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(g.name).font(.subheadline.weight(.medium))
-                                if let code = g.code { Text("Invite code: \(code)").font(.caption2).foregroundStyle(.secondary) }
+                                if let code = g.inviteCode { Text("Invite code: \(code)").font(.caption2).foregroundStyle(.secondary) }
                             }
                         }
                     }
@@ -37,10 +39,19 @@ struct FriendsView: View {
             }
         }
         .navigationTitle("Friends")
-        .sheet(isPresented: $showCreate) {
+        .sheet(isPresented: $showCreate, onDismiss: {
+            // Present the "share this code" alert only after the sheet has fully
+            // closed — presenting it during dismissal makes SwiftUI drop it.
+            if createdCode != nil { showCreatedAlert = true }
+        }) {
             TextEntrySheet(title: "Create Group", placeholder: "Group name", actionLabel: "Create") { name in
                 await create(name)
             }
+        }
+        .alert("Group created", isPresented: $showCreatedAlert, presenting: createdCode) { _ in
+            Button("OK") { createdCode = nil }
+        } message: { code in
+            Text("Share this invite code with friends so they can join:\n\n\(code)")
         }
         .sheet(isPresented: $showJoin) {
             TextEntrySheet(title: "Join Group", placeholder: "Invite code", actionLabel: "Join") { code in
@@ -59,7 +70,8 @@ struct FriendsView: View {
 
     private func create(_ name: String) async {
         guard let id = auth.currentUser?.id, !name.isEmpty else { return }
-        try? await APIClient.shared.createGroup(name: name, swimmerId: id)
+        // `try?` on a throwing call returning String? yields String??; flatten it.
+        createdCode = (try? await APIClient.shared.createGroup(name: name, swimmerId: id)) ?? nil
         await load()
     }
 
@@ -79,7 +91,7 @@ struct GroupLeaderboardView: View {
 
     var body: some View {
         List {
-            if let code = group.code {
+            if let code = group.inviteCode {
                 Section { Text("Invite code: \(code)").font(.subheadline) }
             }
             Section("Leaderboard") {

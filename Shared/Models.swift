@@ -79,7 +79,10 @@ struct Meet: Codable, Identifiable {
     let name: String
     let date: String?
     let location: String?
-    let resultCount: Int?
+    let resultCount: Int?          // events with a logged time
+    let eventCount: Int?           // total events
+    let pendingCount: Int?         // events still awaiting a time
+    let status: String?            // "upcoming" | "over" (derived from date)
 }
 
 struct MeetRecommendation: Codable, Identifiable {
@@ -279,16 +282,27 @@ struct MeetResult: Codable, Identifiable {
     let id: String
     let stroke: String
     let distance: Int
-    let timeSeconds: Double
+    let timeSeconds: Double?        // nil until the swimmer logs the actual time
+    let expectedSeconds: Double?    // goal time for an upcoming event (nil otherwise)
     let place: Int?
     let medal: String?
     let isPb: Bool?
 }
 
+struct AppNotification: Codable, Identifiable {
+    let id: String
+    let type: String
+    let title: String
+    let body: String?
+    let readAt: String?
+    let createdAt: String?
+}
+
 struct FriendGroup: Codable, Identifiable {
     let id: String
     let name: String
-    let code: String?
+    // Backend column `invite_code` → decoded as `inviteCode` via .convertFromSnakeCase.
+    let inviteCode: String?
     let isOwner: Bool?
 }
 
