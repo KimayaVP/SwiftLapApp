@@ -73,7 +73,7 @@ Example: `xcrun simctl launch booted com.swiftlap.ios -uitestSwimmer -screen vid
 - Email login/signup → backend `/api/auth/*` (signup auto-logs-in).
 - Google → Supabase Swift SDK `signInWithOAuth(.google)`; Apple → native `SignInWithAppleButton` + `signInWithIdToken`. Both exchange the token via backend `/api/auth/oauth-sync` (role prompt for first-time OAuth users).
 - **API auth tokens (since 2026-05-24):** the backend now requires a Bearer token on every `/api` route. `AuthManager` captures the session token on email/OAuth login, hands the session to the Supabase SDK (for auto-refresh), and sets `APIClient.tokenProvider`, which attaches the header to every request (incl. multipart upload). The watch leaves `tokenProvider` nil — it only calls the public `/watch/*` device endpoints.
-- Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.ios.watchkitapp` (embedded in the iOS app, `WKCompanionAppBundleIdentifier` + `WKRunsIndependentlyOfCompanionApp`). Dev team `98QNV4FG3G` baked into `project.yml`.
+- Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.ios.watch` (embedded in the iOS app, `WKCompanionAppBundleIdentifier` + `WKRunsIndependentlyOfCompanionApp`). Dev team `98QNV4FG3G` baked into `project.yml`. (Watch id was `com.swiftlap.ios.watchkitapp` until 2026-06-01, renamed because the old id got stuck reserved under Kimaya's free Personal Team — see signing note below.)
 
 ## Status: milestones M1–M7 done
 
@@ -97,10 +97,20 @@ M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens ·
 
 ### Config / human steps still pending (need father / account holder)
 - Real **1024px app icon** (assets are placeholders).
-- Register `com.swiftlap.ios` as an **App ID with Sign in with Apple**; set up **code signing**; create **App Store Connect** record + screenshots + submit.
+- Register `com.swiftlap.ios` as an **App ID with Sign in with Apple** (done 2026-05-26 under his Individual team `98QNV4FG3G`); set up **code signing** under his team (see below); create **App Store Connect** record + screenshots + submit (developer name will show as "Vishal Parwani Lakshmichand").
 - ✅ Supabase redirect URL `com.swiftlap.ios://login-callback` is configured — **Google sign-in verified working on a real iPhone (2026-05-27)**.
 
-> **Personal-Team test build (2026-05-27):** the org team (`98QNV4FG3G`, "Vishal Parwani Lakshmichand") doesn't appear in Xcode's signing dropdown — only Kimaya's free Personal Team, which can't sign **Sign in with Apple** or **HealthKit**. To install on a real iPhone for testing, `project.yml` has **temporary, uncommitted** local edits: Apple-sign-in entitlement commented out, watch un-embedded, iOS `DEVELOPMENT_TEAM` cleared, and bundle id changed to `com.swiftlap.iostest`. **Revert all of these (git restore project.yml + regenerate) once the org team works.** Org-team fix is pending the account holder (father) confirming the membership is Active + accepting any developer-portal agreement.
+> ### ✅ Signing DONE under father's Apple ID (2026-06-01)
+> Father added his Apple ID to Kimaya's Mac (Xcode → Settings → Accounts), so team `98QNV4FG3G` ("Vishal Parwani Lakshmichand") now signs both targets. The temp Personal-Team edits in `project.yml` were reverted surgically (real bundle id `com.swiftlap.ios`, Sign in with Apple entitlement restored, watch re-embedded, `DEVELOPMENT_TEAM` → `98QNV4FG3G`; `schemes:` kept). The stale per-machine dev cert was **revoked + recreated** (its private key wasn't in this keychain). The watch App ID `com.swiftlap.ios.watchkitapp` was "not available" (stuck reserved under Kimaya's free Personal Team), so the watch bundle id was renamed **`com.swiftlap.ios.watch`** — registers cleanly under his team. `xcodebuild ... -destination generic/platform=iOS -allowProvisioningUpdates` = **BUILD SUCCEEDED**, both targets signed by "Apple Development: Vishal Parwani Lakshmichand". **`project.yml` should now be committed** (first commit since the workaround). REMAINING human steps: real 1024px icon, App Store Connect record + submission, and APNs key for push. The earlier reality note below is kept for context.
+>
+> ### Apple signing reality (confirmed 2026-05-27 — supersedes earlier "org team" notes)
+> Father's Apple Developer Program enrollment is **Individual**, NOT Organization. **Individual enrollments do not support team members** — only the account holder can sign apps with that team. So Kimaya cannot be added as Admin (the earlier note saying she was was wrong). Kimaya is also under 18 and cannot self-enroll. **The chosen path: she signs under her father's Apple ID.**
+>
+> **One-time setup at next session:** father signs in to his Apple ID on Kimaya's Mac via **Xcode → Settings → Accounts → + → Apple ID** (approves 2FA on his phone). After that, `98QNV4FG3G` ("Vishal Parwani Lakshmichand") appears in Signing & Capabilities and everything signs normally. Don't sign him out — re-adding needs a fresh 2FA.
+>
+> **Personal-Team test build (2026-05-27):** because the above hadn't been done yet, the app was test-built under Kimaya's free Personal Team. `project.yml` has **temporary, uncommitted** local edits (Apple-sign-in entitlement commented out, watch un-embedded, iOS `DEVELOPMENT_TEAM` set to `765BX27Q2Y` (her Personal Team), bundle id `com.swiftlap.iostest`). Also currently uncommitted (and worth keeping): the explicit `schemes:` block.
+>
+> **Surgical revert plan once father signs in** (do NOT `git restore project.yml` — it would wipe the `schemes:` block too): iOS `DEVELOPMENT_TEAM` → `98QNV4FG3G`; bundle id → `com.swiftlap.ios`; re-add the `entitlements` block with `com.apple.developer.applesignin: [Default]`; uncomment the `SwiftLapWatch` embed dependency; keep `schemes:`. Then `xcodegen generate`, rebuild, and **commit `project.yml`**.
 
 ## Conventions
 - Each new screen: a SwiftUI View that loads from `APIClient` (async/await), shows loading/empty states.

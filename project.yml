@@ -67,8 +67,24 @@ targets:
         com.apple.developer.healthkit: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.swiftlap.ios.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: com.swiftlap.ios.watch
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 98QNV4FG3G
+
+schemes:
+  SwiftLap:
+    build:
+      targets:
+        SwiftLap: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  SwiftLapWatch:
+    build:
+      targets:
+        SwiftLapWatch: all
+    run:
+      config: Debug
