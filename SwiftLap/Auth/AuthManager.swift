@@ -48,6 +48,7 @@ final class AuthManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: storeKey),
            let user = try? JSONDecoder().decode(Profile.self, from: data) {
             currentUser = user
+            PushManager.shared.enable()   // restored session — refresh push token
         }
     }
 
@@ -146,6 +147,7 @@ final class AuthManager: ObservableObject {
     // MARK: - Logout
 
     func logout() {
+        PushManager.shared.disable()
         currentUser = nil
         storeToken(nil)
         UserDefaults.standard.removeObject(forKey: storeKey)
@@ -186,6 +188,7 @@ final class AuthManager: ObservableObject {
         if let data = try? JSONEncoder().encode(user) {
             UserDefaults.standard.set(data, forKey: storeKey)
         }
+        PushManager.shared.enable()   // ask permission + register for APNs
     }
 
     private func client() async throws -> SupabaseClient {

@@ -37,6 +37,9 @@ targets:
       path: SwiftLap/SwiftLap.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # APNs. The value is substituted from APS_ENVIRONMENT below so Debug
+        # builds use the sandbox push gateway and Release uses production.
+        aps-environment: $(APS_ENVIRONMENT)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.swiftlap.ios
@@ -45,6 +48,11 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 98QNV4FG3G
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+        Release:
+          APS_ENVIRONMENT: production
 
   SwiftLapWatch:
     type: application

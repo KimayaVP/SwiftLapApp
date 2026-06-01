@@ -309,6 +309,14 @@ extension APIClient {
     func markNotificationsRead(id: String? = nil) async throws {
         try await postExpectingError("/api/notifications/read", MarkReadBody(id: id))
     }
+    struct DeviceTokenBody: Encodable { let token: String; let platform: String }
+    func registerDevice(token: String) async throws {
+        try await postExpectingError("/api/notifications/register-device", DeviceTokenBody(token: token, platform: "ios"))
+    }
+    struct UnregisterDeviceBody: Encodable { let token: String }
+    func unregisterDevice(token: String) async throws {
+        try await postExpectingError("/api/notifications/unregister-device", UnregisterDeviceBody(token: token))
+    }
 
     // Video & feedback
     struct FeedbackResponse: Decodable { let feedbacks: [VideoFeedback] }
