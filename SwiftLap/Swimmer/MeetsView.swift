@@ -13,6 +13,7 @@ struct MeetsView: View {
     @State private var loading = true
     @State private var showAddMeet = false
     @State private var filter = "all"   // all | upcoming | over
+    @State private var dupError: String?
 
     private var filteredMeets: [Meet] {
         filter == "all" ? meets : meets.filter { ($0.status ?? "over") == filter }
@@ -74,6 +75,9 @@ struct MeetsView: View {
                 await createMeet(name: name, date: date, location: location, events: events)
             }
         }
+        .alert("Already added", isPresented: Binding(get: { dupError != nil }, set: { if !$0 { dupError = nil } })) {
+            Button("OK", role: .cancel) { dupError = nil }
+        } message: { Text(dupError ?? "") }
         .task { await load() }
     }
 
@@ -86,7 +90,7 @@ struct MeetsView: View {
                 Text(isUpcoming ? "Upcoming" : "Over")
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 8).padding(.vertical, 2)
-                    .background(isUpcoming ? Color.cyan.opacity(0.25) : Color.secondary.opacity(0.2))
+                    .background(isUpcoming ? Theme.teal.opacity(0.25) : Color.secondary.opacity(0.2))
                     .clipShape(Capsule())
             }
             HStack(spacing: 6) {
@@ -120,16 +124,24 @@ struct MeetsView: View {
         await load()
     }
 
-    private func createMeet(name: String, date: String?, location: String?, events: [APIClient.MeetEventInput]) async {
-        guard let id = auth.currentUser?.id else { return }
-        let meet = try? await APIClient.shared.createMeet(swimmerId: id, name: name, date: date, location: location, events: events)
-        // For an upcoming meet, schedule a local reminder to log times the day after.
-        if let meet, let dateStr = date, let d = parseISODate(dateStr),
-           d >= Calendar.current.startOfDay(for: Date()) {
-            await LocalNotifications.requestPermission()
-            LocalNotifications.scheduleMeetLogReminder(meetName: name, meetDate: d, meetId: meet.id)
+    /// Returns an error message (e.g. duplicate meet) on failure, nil on success.
+    private func createMeet(name: String, date: String?, location: String?, events: [APIClient.MeetEventInput]) async -> String? {
+        guard let id = auth.currentUser?.id else { return "Not signed in" }
+        do {
+            let meet = try await APIClient.shared.createMeet(swimmerId: id, name: name, date: date, location: location, events: events)
+            // For an upcoming meet, schedule a local reminder to log times the day after.
+            if let meet, let dateStr = date, let d = parseISODate(dateStr),
+               d >= Calendar.current.startOfDay(for: Date()) {
+                await LocalNotifications.requestPermission()
+                LocalNotifications.scheduleMeetLogReminder(meetName: name, meetDate: d, meetId: meet.id)
+            }
+            await load()
+            return nil
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            dupError = msg
+            return msg
         }
-        await load()
     }
 }
 
@@ -137,7 +149,8 @@ struct MeetsView: View {
 
 private struct AddMeetSheet: View {
     @Environment(\.dismiss) var dismiss
-    let onCreate: (String, String?, String?, [APIClient.MeetEventInput]) async -> Void
+    /// Returns an error message to keep the sheet open, or nil on success.
+    let onCreate: (String, String?, String?, [APIClient.MeetEventInput]) async -> String?
 
     @State private var name = ""
     @State private var date = Date()
@@ -212,8 +225,9 @@ private struct AddMeetSheet: View {
                     Button("Create") {
                         saving = true
                         Task {
-                            await onCreate(name, isoDate(date), location.isEmpty ? nil : location, mappedEvents())
-                            dismiss()
+                            let err = await onCreate(name, isoDate(date), location.isEmpty ? nil : location, mappedEvents())
+                            saving = false
+                            if err == nil { dismiss() }   // on dup/error, stay open; alert shows the reason
                         }
                     }
                     .disabled(name.isEmpty || saving)

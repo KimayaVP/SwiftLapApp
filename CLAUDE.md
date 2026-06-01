@@ -75,6 +75,21 @@ Example: `xcrun simctl launch booted com.swiftlap.ios -uitestSwimmer -screen vid
 - **API auth tokens (since 2026-05-24):** the backend now requires a Bearer token on every `/api` route. `AuthManager` captures the session token on email/OAuth login, hands the session to the Supabase SDK (for auto-refresh), and sets `APIClient.tokenProvider`, which attaches the header to every request (incl. multipart upload). The watch leaves `tokenProvider` nil — it only calls the public `/watch/*` device endpoints.
 - Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.ios.watch` (embedded in the iOS app, `WKCompanionAppBundleIdentifier` + `WKRunsIndependentlyOfCompanionApp`). Dev team `98QNV4FG3G` baked into `project.yml`. (Watch id was `com.swiftlap.ios.watchkitapp` until 2026-06-01, renamed because the old id got stuck reserved under Kimaya's free Personal Team — see signing note below.)
 
+## Pre-App-Store UX polish (2026-06-01)
+
+Feedback pass before submission (replicated on web + backend — see `../SwiftLap/CLAUDE.md`):
+- **`Theme.swift`** (new, iOS-only) — the **Deep Ocean** palette (`Theme.navy/teal/aqua/coral`, `Theme.gradient` teal→aqua, `Theme.softGradient`), `BrandPrimaryButtonStyle`/`BrandSecondaryButtonStyle` (`.brandPrimary`/`.brandSecondary`), and `BrandMark` (non-interactive logo for toolbars). Global `.tint(Theme.accent)` set in `SwiftLapApp.swift`. All `.cyan` usages swapped to `Theme.teal`.
+- **Login** — branded header, role-selection **cards** (not a segmented picker), gradient/branded Google + Apple buttons; OAuth role prompt highlights the tapped role immediately + shows a spinner.
+- **Home screens** — the role chip is now `BrandMark` (a logo, not a tappable-looking button); `Tile` redesigned (gradient icon chip, cleaner card, optional `badge:`). Swimmer Meets tile shows a badge for pending coach recommendations.
+- **Coach Invite** — proper `Send Invite` button, X (Cancel) instead of Done, transient success **toast** instead of a text row.
+- **Team Overview** — batch filter is a **dropdown** (Menu); stat boxes are tappable → sheet listing that category's swimmers.
+- **Assign** (`Goals & Routines`) — batch→swimmer narrowing; lists of assigned goals (live status) + routines via new `assignedGoals`/`assignedRoutines` API.
+- **Batches & Swimmers** — `+` is a menu (New Batch / Add Swimmer→invite); CreateBatchSheet shows a spinner + surfaces the duplicate-name 409; empty-batch text; per-swimmer page (`CoachSwimmerView`) now has working Quick Reaction (with toast + footer), an Assign deep-link (`CoachAssignView(preselect:)`), and the swimmer's existing goals/routines.
+- **Recommend Meet** — recipients are batch/Individuals rows → checkbox **popup** (`RecipientPickerSheet`), "N selected" summary, gradient Send button, and an editable **Sent Recommendations** list (`EditRecommendationSheet` → update/withdraw API).
+- **Swimmer Meets** — Add-Meet surfaces the dedup 409 ("Already added") instead of silently swallowing it.
+- **New `APIClient` methods:** `assignedGoals`, `assignedRoutines`, `sentRecommendations`, `updateRecommendation`, `deleteRecommendation`. Models gained optional `Goal.swimmerName/status`, `CoachRoutine.swimmerId/swimmerName`, `MeetRecommendation.swimmerName`.
+- **Config note (not code):** the Google sign-in consent screen showing the Supabase project domain is fixed in the Supabase/Google OAuth config (custom domain / OAuth consent app name), not in the app.
+
 ## Status: milestones M1–M7 done
 
 M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens · M5 coach screens · M6 watch migration (embedded + independent; start-screen scroll bug fixed) · M7 App Store prep (in-app account deletion + privacy policy).

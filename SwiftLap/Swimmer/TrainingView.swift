@@ -41,7 +41,7 @@ struct TrainingView: View {
                 } else if let plan = resp.plan {
                     Section(plan.weekFocus ?? "This Week") {
                         if let intensity = plan.intensity {
-                            Text("Intensity: \(intensity.uppercased())").font(.caption.weight(.semibold)).foregroundStyle(.cyan)
+                            Text("Intensity: \(intensity.uppercased())").font(.caption.weight(.semibold)).foregroundStyle(Theme.teal)
                         }
                         if let areas = plan.focusAreas, !areas.isEmpty {
                             Text(areas.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)

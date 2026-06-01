@@ -19,7 +19,7 @@ struct InsightsView: View {
                     HStack(alignment: .center) {
                         Text("#\(r.rank ?? 0)")
                             .font(.system(size: 40, weight: .bold))
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(Theme.teal)
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
                             Text("📈 \(improvementText(r.improvementPct)) improvement")

@@ -57,7 +57,7 @@ struct CoachLeaderboardView: View {
     }
 
     private func rankColor(_ rank: Int?) -> Color {
-        switch rank { case 1: return .yellow; case 2, 3: return .cyan; default: return .secondary }
+        switch rank { case 1: return .yellow; case 2, 3: return Theme.teal; default: return .secondary }
     }
 
     private func improvement(_ pct: Double?) -> String {

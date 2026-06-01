@@ -13,6 +13,7 @@ struct SwimmerHomeView: View {
     @EnvironmentObject var auth: AuthManager
 
     @State private var invites: [CoachRequest] = []
+    @State private var pendingRecs = 0
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -30,7 +31,7 @@ struct SwimmerHomeView: View {
                         NavigationLink { RecentsView() } label: { Tile(icon: "chart.bar.fill", title: "Recents") }
                         NavigationLink { GoalsView() } label: { Tile(icon: "target", title: "Goals") }
                         NavigationLink { TrainingView() } label: { Tile(icon: "calendar", title: "Training") }
-                        NavigationLink { MeetsView() } label: { Tile(icon: "flag.checkered", title: "Meets & Races") }
+                        NavigationLink { MeetsView() } label: { Tile(icon: "flag.checkered", title: "Meets & Races", badge: pendingRecs) }
                         NavigationLink { InsightsView() } label: { Tile(icon: "chart.line.uptrend.xyaxis", title: "Insights & Rank") }
                         NavigationLink { AchievementsView() } label: { Tile(icon: "medal.fill", title: "Achievements") }
                         NavigationLink { VideoView() } label: { Tile(icon: "video.fill", title: "Video & Feedback") }
@@ -43,7 +44,7 @@ struct SwimmerHomeView: View {
             .task { await loadInvites() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("🏊 Swimmer").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    BrandMark(role: "swimmer")
                 }
                 ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -90,14 +91,16 @@ struct SwimmerHomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.cyan.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.cyan.opacity(0.3)))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.teal.opacity(0.12)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.teal.opacity(0.3)))
     }
 
     private func loadInvites() async {
         guard let id = auth.currentUser?.id else { return }
         let all = (try? await APIClient.shared.incomingRequests(userId: id)) ?? []
         invites = all.filter { $0.type == "coach_to_swimmer" }
+        let recs = (try? await APIClient.shared.fetchMeetRecommendations(swimmerId: id)) ?? []
+        pendingRecs = recs.filter { ($0.status ?? "pending") == "pending" }.count
     }
 
     private func respond(_ invite: CoachRequest, _ action: String) async {
@@ -112,19 +115,45 @@ struct SwimmerHomeView: View {
 struct Tile: View {
     let icon: String
     let title: String
+    var badge: Int = 0
 
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 30))
-                .foregroundStyle(.cyan)
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Theme.softGradient)
+                    .frame(width: 54, height: 54)
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Theme.teal)
+            }
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.navy)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 110)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .frame(height: 124)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Theme.teal.opacity(0.12), lineWidth: 1)
+        )
+        .overlay(alignment: .topTrailing) {
+            if badge > 0 {
+                Text(badge > 9 ? "9+" : "\(badge)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Capsule().fill(Theme.coral))
+                    .offset(x: -8, y: 8)
+            }
+        }
+        .shadow(color: Theme.navy.opacity(0.06), radius: 8, x: 0, y: 3)
     }
 }

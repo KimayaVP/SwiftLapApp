@@ -70,6 +70,9 @@ struct Goal: Codable, Identifiable {
     let achieved: Bool?
     let bestTime: Double?
     let gap: Double?
+    // present only on the coach's /goals/assigned/:coachId list:
+    let swimmerName: String?
+    let status: String?       // "ahead" | "behind" | "no_data"
 }
 
 // MARK: - Meets
@@ -97,6 +100,7 @@ struct MeetRecommendation: Codable, Identifiable {
     let note: String?
     let status: String?
     let coachName: String?
+    let swimmerName: String?   // present only on the coach's sent-recommendations list
 }
 
 // MARK: - Batches & Leaderboard
@@ -274,6 +278,8 @@ struct CoachRoutine: Codable, Identifiable {
     let title: String
     let details: String?
     let coachName: String?
+    let swimmerId: String?
+    let swimmerName: String?   // present only on the coach's assigned-routines list
 }
 
 // MARK: - Meet results & groups

@@ -31,7 +31,7 @@ struct CoachHomeView: View {
             .navigationTitle("Hi, \(firstName)")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Text("👨‍🏫 Coach").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    BrandMark(role: "coach")
                 }
                 ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -43,7 +43,7 @@ struct CoachHomeView: View {
                                         .font(.system(size: 10, weight: .bold))
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, 4).padding(.vertical, 1)
-                                        .background(Capsule().fill(.red))
+                                        .background(Capsule().fill(Theme.coral))
                                         .offset(x: 9, y: -8)
                                 }
                             }

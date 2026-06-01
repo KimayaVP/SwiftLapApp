@@ -102,7 +102,7 @@ struct GroupLeaderboardView: View {
                 } else {
                     ForEach(entries) { e in
                         HStack {
-                            Text("#\(e.rank ?? 0)").font(.headline).foregroundStyle(.cyan).frame(width: 40, alignment: .leading)
+                            Text("#\(e.rank ?? 0)").font(.headline).foregroundStyle(Theme.teal).frame(width: 40, alignment: .leading)
                             Text(e.name)
                             Spacer()
                             Text(e.compositeScore.map { String(format: "%.0f", $0) } ?? "-")

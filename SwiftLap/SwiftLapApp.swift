@@ -14,6 +14,7 @@ struct SwiftLapApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(auth)
+                .tint(Theme.accent)   // Deep Ocean teal on all default controls
         }
     }
 }

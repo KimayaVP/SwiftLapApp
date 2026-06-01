@@ -10,72 +10,85 @@ struct CoachOverviewView: View {
 
     @State private var swimmers: [CoachSwimmer] = []
     @State private var batches: [(batch: Batch, memberIds: [String])] = []
-    @State private var selected: Set<String> = []   // batch ids + "individuals"; empty = all
+    @State private var filter = "all"          // "all" | batchId | "individuals"
     @State private var loading = true
+    @State private var drill: CategoryDrill?   // tapped stat box → swimmer list
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         List {
             Section("Filter by batch") {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        chip("All", id: "all")
-                        ForEach(batches, id: \.batch.id) { b in chip(b.batch.name, id: b.batch.id) }
-                        chip("Individuals", id: "individuals")
+                Menu {
+                    Picker("Batch", selection: $filter) {
+                        Text("All swimmers").tag("all")
+                        ForEach(batches, id: \.batch.id) { b in Text(b.batch.name).tag(b.batch.id) }
+                        Text("Individuals").tag("individuals")
                     }
-                    .padding(.vertical, 2)
+                } label: {
+                    HStack {
+                        Text(filterLabel).foregroundStyle(Theme.navy)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
+
             Section {
                 let f = filtered()
                 LazyVGrid(columns: columns, spacing: 12) {
-                    statBox("Total", f.count, .primary)
-                    statBox("On Track", f.filter { $0.status == "ahead" }.count, .green)
-                    statBox("Behind", f.filter { $0.status == "behind" }.count, .red)
-                    statBox("No Goals", f.filter { $0.status == "no_goals" }.count, .secondary)
+                    statBox("Total", "Total", f, Theme.navy)
+                    statBox("On Track", "ahead", f.filter { $0.status == "ahead" }, .green)
+                    statBox("Behind", "behind", f.filter { $0.status == "behind" }, Theme.coral)
+                    statBox("No Goals", "no_goals", f.filter { $0.status == "no_goals" }, .secondary)
                 }
                 .padding(.vertical, 4)
+            } footer: {
+                Text("Tap a box to see those swimmers.")
             }
             if loading { ProgressView() }
         }
         .navigationTitle("Team Overview")
+        .sheet(item: $drill) { d in
+            CategorySwimmersSheet(title: d.title, swimmers: d.swimmers)
+                .environmentObject(auth)
+        }
         .task { await load() }
     }
 
-    private func chip(_ title: String, id: String) -> some View {
-        let isActive = id == "all" ? selected.isEmpty : selected.contains(id)
-        return Button {
-            if id == "all" { selected.removeAll() }
-            else if selected.contains(id) { selected.remove(id) }
-            else { selected.insert(id) }
+    private var filterLabel: String {
+        switch filter {
+        case "all": return "All swimmers"
+        case "individuals": return "Individuals"
+        default: return batches.first { $0.batch.id == filter }?.batch.name ?? "All swimmers"
+        }
+    }
+
+    private func statBox(_ label: String, _ key: String, _ list: [CoachSwimmer], _ color: Color) -> some View {
+        Button {
+            drill = CategoryDrill(title: label, swimmers: list)
         } label: {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Capsule().fill(isActive ? Color.cyan : Color(.tertiarySystemFill)))
-                .foregroundStyle(isActive ? .white : .primary)
+            VStack(spacing: 4) {
+                Text("\(list.count)").font(.system(size: 30, weight: .bold)).foregroundStyle(color)
+                Text(label).font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.secondarySystemBackground)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(color.opacity(0.18), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
 
-    private func statBox(_ label: String, _ value: Int, _ color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text("\(value)").font(.system(size: 30, weight: .bold)).foregroundStyle(color)
-            Text(label).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-    }
-
     private func filtered() -> [CoachSwimmer] {
-        guard !selected.isEmpty else { return swimmers }
-        let inAnyBatch = Set(batches.flatMap { $0.memberIds })
-        return swimmers.filter { s in
-            let inSelectedBatch = batches.contains { selected.contains($0.batch.id) && $0.memberIds.contains(s.id) }
-            let isIndividual = selected.contains("individuals") && !inAnyBatch.contains(s.id)
-            return inSelectedBatch || isIndividual
+        switch filter {
+        case "all": return swimmers
+        case "individuals":
+            let inAny = Set(batches.flatMap { $0.memberIds })
+            return swimmers.filter { !inAny.contains($0.id) }
+        default:
+            let ids = Set(batches.first { $0.batch.id == filter }?.memberIds ?? [])
+            return swimmers.filter { ids.contains($0.id) }
         }
     }
 
@@ -92,5 +105,49 @@ struct CoachOverviewView: View {
         }
         batches = result
         loading = false
+    }
+}
+
+struct CategoryDrill: Identifiable {
+    let id = UUID()
+    let title: String
+    let swimmers: [CoachSwimmer]
+}
+
+private struct CategorySwimmersSheet: View {
+    @EnvironmentObject var auth: AuthManager
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let swimmers: [CoachSwimmer]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if swimmers.isEmpty {
+                    Text("No swimmers in this category.").foregroundStyle(.secondary)
+                } else {
+                    ForEach(swimmers) { s in
+                        NavigationLink { CoachSwimmerView(swimmer: s).environmentObject(auth) } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(s.name).font(.subheadline.weight(.medium))
+                                    Text("Goals \(s.goalsAhead ?? 0)/\(s.goalsCount ?? 0) · 🔥 \(s.streak ?? 0)")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(statusIcon(s.status))
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
+    }
+
+    private func statusIcon(_ status: String) -> String {
+        switch status { case "ahead": return "✅"; case "behind": return "🔻"; default: return "—" }
     }
 }

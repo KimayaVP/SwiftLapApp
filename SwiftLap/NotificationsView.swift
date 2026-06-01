@@ -67,7 +67,7 @@ struct NotificationsView: View {
                                 Text(String(t.prefix(10))).font(.caption2).foregroundStyle(.tertiary)
                             }
                         }
-                        .listRowBackground(n.readAt == nil ? Color.cyan.opacity(0.08) : Color.clear)
+                        .listRowBackground(n.readAt == nil ? Theme.teal.opacity(0.08) : Color.clear)
                     }
                 }
             }

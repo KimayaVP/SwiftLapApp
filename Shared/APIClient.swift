@@ -464,6 +464,30 @@ extension APIClient {
         try await postExpectingError("/api/training-routines/assign", AssignRoutineBody(coachId: coachId, swimmerId: swimmerId, title: title, details: details))
     }
 
+    // Coach-facing lists of what they've assigned.
+    func assignedGoals(coachId: String) async throws -> [Goal] {
+        let r: GoalsResponse = try await get("/api/goals/assigned/\(coachId)")
+        return r.goals
+    }
+    func assignedRoutines(coachId: String) async throws -> [CoachRoutine] {
+        let r: RoutinesResponse = try await get("/api/training-routines/assigned/\(coachId)")
+        return r.routines
+    }
+
+    // Coach-facing list + edit/withdraw of meet recommendations they've sent.
+    func sentRecommendations(coachId: String) async throws -> [MeetRecommendation] {
+        let r: RecommendationsResponse = try await get("/api/meets/recommendations/coach/\(coachId)")
+        return r.recommendations
+    }
+    struct UpdateRecBody: Encodable { let recommendationId: String; let meetName: String; let meetDate: String?; let note: String? }
+    func updateRecommendation(recommendationId: String, meetName: String, meetDate: String?, note: String?) async throws {
+        try await postExpectingError("/api/meets/recommendation/update", UpdateRecBody(recommendationId: recommendationId, meetName: meetName, meetDate: meetDate, note: note))
+    }
+    func deleteRecommendation(recommendationId: String) async throws {
+        let req = await authorized(makeRequest("/api/meets/recommendation/\(recommendationId)", method: "DELETE"))
+        let _: SuccessBody = try await perform(req)
+    }
+
     struct InviteBody: Encodable { let coachId: String; let swimmerEmail: String }
     struct InviteResponse: Decodable { let success: Bool?; let emailed: Bool?; let message: String?; let swimmer: SwimmerRef?; let error: String? }
     func inviteSwimmer(coachId: String, email: String) async throws -> InviteResponse {

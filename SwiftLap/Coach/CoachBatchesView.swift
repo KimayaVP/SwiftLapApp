@@ -3,7 +3,7 @@
 //  SwiftLap (iOS)
 //
 //  Swimmers grouped by batch (+ an Individuals group), create batches,
-//  manage batch membership, and comment/award per swimmer.
+//  invite swimmers, manage batch membership, and per-swimmer coach actions.
 //
 
 import SwiftUI
@@ -16,6 +16,8 @@ struct CoachBatchesView: View {
     @State private var batches: [(batch: Batch, memberIds: [String])] = []
     @State private var loading = true
     @State private var showCreate = false
+    @State private var showInvite = false
+    @State private var createError: String?
 
     var body: some View {
         List {
@@ -23,7 +25,7 @@ struct CoachBatchesView: View {
                 Section {
                     let members = swimmers.filter { entry.memberIds.contains($0.id) }
                     if members.isEmpty {
-                        Text("No swimmers").foregroundStyle(.secondary)
+                        Text("No swimmers in this batch yet").foregroundStyle(.secondary)
                     } else {
                         ForEach(members) { swimmerLink($0) }
                     }
@@ -43,7 +45,7 @@ struct CoachBatchesView: View {
                 let inAny = Set(batches.flatMap { $0.memberIds })
                 let indiv = swimmers.filter { !inAny.contains($0.id) }
                 if indiv.isEmpty {
-                    Text(loading ? "Loading…" : "None").foregroundStyle(.secondary)
+                    Text(loading ? "Loading…" : "No individual swimmers").foregroundStyle(.secondary)
                 } else {
                     ForEach(indiv) { swimmerLink($0) }
                 }
@@ -52,11 +54,24 @@ struct CoachBatchesView: View {
         .navigationTitle("Batches & Swimmers")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showCreate = true } label: { Image(systemName: "plus") }
+                Menu {
+                    Button { showCreate = true } label: { Label("New Batch", systemImage: "folder.badge.plus") }
+                    Button { showInvite = true } label: { Label("Add Swimmer", systemImage: "person.badge.plus") }
+                } label: {
+                    Image(systemName: "plus")
+                }
             }
         }
         .sheet(isPresented: $showCreate) {
             CreateBatchSheet { name in await createBatch(name) }
+        }
+        .sheet(isPresented: $showInvite, onDismiss: { Task { await load() } }) {
+            CoachInviteView().environmentObject(auth)
+        }
+        .alert("Couldn't create batch", isPresented: Binding(get: { createError != nil }, set: { if !$0 { createError = nil } })) {
+            Button("OK", role: .cancel) { createError = nil }
+        } message: {
+            Text(createError ?? "")
         }
         .refreshable { await load() }
         .task { await load() }
@@ -94,14 +109,22 @@ struct CoachBatchesView: View {
         loading = false
     }
 
-    private func createBatch(_ name: String) async {
-        guard let id = auth.currentUser?.id, !name.isEmpty else { return }
-        try? await APIClient.shared.createBatch(name: name, coachId: id)
-        await load()
+    /// Returns an error message on failure (e.g. duplicate name), nil on success.
+    private func createBatch(_ name: String) async -> String? {
+        guard let id = auth.currentUser?.id, !name.isEmpty else { return "Enter a batch name" }
+        do {
+            try await APIClient.shared.createBatch(name: name, coachId: id)
+            await load()
+            return nil
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            createError = msg
+            return msg
+        }
     }
 }
 
-// MARK: - Per-swimmer comment / award
+// MARK: - Per-swimmer page (assign, reactions, comments, awards, videos)
 
 struct CoachSwimmerView: View {
     @EnvironmentObject var auth: AuthManager
@@ -115,27 +138,69 @@ struct CoachSwimmerView: View {
     @State private var videos: [VideoFeedback] = []
     @State private var videoNotes: [String: String] = [:]
     @State private var showRemoveConfirm = false
+    @State private var assignedGoals: [Goal] = []
+    @State private var assignedRoutines: [CoachRoutine] = []
+    @State private var reactionToast: String?
 
     private let columns = [GridItem(.adaptive(minimum: 90), spacing: 10)]
 
     var body: some View {
         List {
+            // Assign + what's already assigned to this swimmer.
+            Section("Goals & Routines") {
+                NavigationLink {
+                    CoachAssignView(preselect: swimmer).environmentObject(auth)
+                } label: {
+                    Label("Assign a goal or routine", systemImage: "target")
+                }
+                if assignedGoals.isEmpty && assignedRoutines.isEmpty {
+                    Text("Nothing assigned yet.").font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(assignedGoals) { g in
+                    HStack {
+                        Text("🎯 \(g.stroke) \(g.distance)m").font(.subheadline)
+                        Spacer()
+                        Text("\(formatLapTime(g.targetSeconds))").font(.caption).foregroundStyle(.secondary)
+                        Text((g.achieved == true) ? "✅" : statusEmoji(g.status))
+                    }
+                }
+                ForEach(assignedRoutines) { r in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("📋 \(r.title)").font(.subheadline)
+                        if let d = r.details, !d.isEmpty { Text(d).font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+            }
+
             if !videos.isEmpty {
                 Section("Videos") {
                     ForEach(videos) { v in videoReviewRow(v) }
                 }
             }
-            Section("Quick Reaction") {
-                HStack(spacing: 16) {
+
+            Section {
+                HStack(spacing: 18) {
                     ForEach(["🔥", "💪", "👏", "⭐️"], id: \.self) { r in
-                        Button(r) { Task { await react(r) } }.font(.title2)
+                        Button { Task { await react(r) } } label: {
+                            Text(r).font(.title2)
+                                .frame(width: 46, height: 46)
+                                .background(Circle().fill(Color(.secondarySystemBackground)))
+                        }
+                        .buttonStyle(.plain)
                     }
+                    Spacer()
                 }
+            } header: {
+                Text("Quick Reaction")
+            } footer: {
+                Text("Tap to instantly send \(swimmer.name) a reaction — they'll see it on their feed.")
             }
+
             Section("Comment") {
                 TextField("Great job on your times!", text: $comment, axis: .vertical)
                 Button("Send Comment") { Task { await sendComment() } }.disabled(comment.isEmpty)
             }
+
             Section("Award a Badge") {
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(coachBadgeLibrary) { b in
@@ -147,7 +212,7 @@ struct CoachSwimmerView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(RoundedRectangle(cornerRadius: 10)
-                                .fill(selectedBadgeId == b.id ? Color.cyan.opacity(0.2) : Color(.secondarySystemBackground)))
+                                .fill(selectedBadgeId == b.id ? Theme.teal.opacity(0.2) : Color(.secondarySystemBackground)))
                         }
                         .buttonStyle(.plain)
                     }
@@ -165,13 +230,28 @@ struct CoachSwimmerView: View {
         }
         .navigationTitle(swimmer.name)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadVideos() }
+        .overlay(alignment: .top) {
+            if let reactionToast {
+                Text(reactionToast)
+                    .font(.subheadline.weight(.medium)).foregroundStyle(.white)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(Theme.gradient, in: Capsule())
+                    .shadow(color: Theme.navy.opacity(0.2), radius: 8, y: 3)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .task { await loadVideos(); await loadAssigned() }
         .alert("Remove \(swimmer.name)?", isPresented: $showRemoveConfirm) {
             Button("Cancel", role: .cancel) {}
             Button("Remove", role: .destructive) { Task { await removeFromSquad() } }
         } message: {
             Text("They'll become unassigned and you'll no longer see their data. You can re-invite them later.")
         }
+    }
+
+    private func statusEmoji(_ status: String?) -> String {
+        switch status { case "ahead": return "✅"; case "behind": return "🔻"; default: return "—" }
     }
 
     private func removeFromSquad() async {
@@ -209,6 +289,12 @@ struct CoachSwimmerView: View {
         videos = (try? await APIClient.shared.fetchVideoFeedback(swimmerId: swimmer.id)) ?? []
     }
 
+    private func loadAssigned() async {
+        let goals = (try? await APIClient.shared.fetchGoals(swimmerId: swimmer.id)) ?? []
+        assignedGoals = goals.filter { $0.source == "coach" }
+        assignedRoutines = (try? await APIClient.shared.fetchCoachRoutines(swimmerId: swimmer.id)) ?? []
+    }
+
     private func sendVideoFeedback(_ v: VideoFeedback) async {
         guard let coachId = auth.currentUser?.id, let note = videoNotes[v.id], !note.isEmpty else { return }
         try? await APIClient.shared.coachVideoFeedback(videoId: v.id, coachId: coachId, feedback: note)
@@ -220,7 +306,11 @@ struct CoachSwimmerView: View {
     private func react(_ emoji: String) async {
         guard let id = auth.currentUser?.id else { return }
         try? await APIClient.shared.addCoachComment(coachId: id, swimmerId: swimmer.id, comment: nil, reaction: emoji)
-        status = "Reaction sent \(emoji)"
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { reactionToast = "Sent \(emoji)" }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            withAnimation(.easeOut(duration: 0.3)) { reactionToast = nil }
+        }
     }
 
     private func sendComment() async {
@@ -254,7 +344,7 @@ struct BatchManageView: View {
         List {
             Section("Members") {
                 if members.isEmpty {
-                    Text(loading ? "Loading…" : "No swimmers").foregroundStyle(.secondary)
+                    Text(loading ? "Loading…" : "No swimmers in this batch yet").foregroundStyle(.secondary)
                 } else {
                     ForEach(members) { m in
                         HStack {
@@ -275,7 +365,8 @@ struct BatchManageView: View {
             }
             Section("Add Swimmer") {
                 if available.isEmpty {
-                    Text("Everyone is already in this batch").foregroundStyle(.secondary)
+                    Text(loading ? "Loading…" : "Everyone on your squad is already in this batch. Invite more from Batches & Swimmers ➕.")
+                        .foregroundStyle(.secondary)
                 } else {
                     ForEach(available) { s in
                         Button { Task { await add(s.id) } } label: { Label(s.name, systemImage: "plus.circle") }
@@ -283,12 +374,16 @@ struct BatchManageView: View {
                 }
             }
             Section("Batch Leaderboard") {
-                ForEach(members) { m in
-                    HStack {
-                        Text("#\(m.rank ?? 0)").foregroundStyle(.cyan).frame(width: 36, alignment: .leading)
-                        Text(m.name)
-                        Spacer()
-                        Text(m.compositeScore.map { String(format: "%.0f", $0) } ?? "-").font(.subheadline.weight(.semibold))
+                if members.isEmpty {
+                    Text("No swimmers in this batch yet").foregroundStyle(.secondary)
+                } else {
+                    ForEach(members) { m in
+                        HStack {
+                            Text("#\(m.rank ?? 0)").foregroundStyle(Theme.teal).frame(width: 36, alignment: .leading)
+                            Text(m.name)
+                            Spacer()
+                            Text(m.compositeScore.map { String(format: "%.0f", $0) } ?? "-").font(.subheadline.weight(.semibold))
+                        }
                     }
                 }
             }
@@ -342,19 +437,38 @@ let coachBadgeLibrary = [
 
 struct CreateBatchSheet: View {
     @Environment(\.dismiss) var dismiss
-    let onCreate: (String) async -> Void
+    /// Returns an error message to display, or nil on success (then dismisses).
+    let onCreate: (String) async -> String?
     @State private var name = ""
+    @State private var saving = false
+    @State private var error: String?
 
     var body: some View {
         NavigationStack {
-            Form { TextField("Batch name (e.g. Morning Squad)", text: $name) }
-                .navigationTitle("Create Batch")
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Create") { Task { await onCreate(name); dismiss() } }.disabled(name.isEmpty)
-                    }
+            Form {
+                Section {
+                    TextField("Batch name (e.g. Morning Squad)", text: $name)
+                } footer: {
+                    if let error { Text(error).foregroundStyle(Theme.coral) }
                 }
+            }
+            .navigationTitle("Create Batch")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task {
+                            saving = true; error = nil
+                            let result = await onCreate(name.trimmingCharacters(in: .whitespaces))
+                            saving = false
+                            if let result { error = result } else { dismiss() }
+                        }
+                    } label: {
+                        if saving { ProgressView() } else { Text("Create") }
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || saving)
+                }
+            }
         }
     }
 }

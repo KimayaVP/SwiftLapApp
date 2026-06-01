@@ -11,26 +11,35 @@ struct CoachInviteView: View {
 
     @State private var email = ""
     @State private var sending = false
-    @State private var status: String?
+    @State private var errorText: String?
+    @State private var toast: String?          // transient "invite sent" confirmation
     @State private var pending: [OutgoingInvite] = []
 
     var body: some View {
         NavigationStack {
-            List {
+            Form {
                 Section("Invite a Swimmer") {
                     TextField("Swimmer email", text: $email)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                    if let errorText {
+                        Text(errorText).font(.caption).foregroundStyle(Theme.coral)
+                    }
+                    Text("If they are not on SwiftLap yet, they get an email to sign up.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+
+                Section {
                     Button {
                         Task { await send() }
                     } label: {
-                        if sending { ProgressView() } else { Text("Send Invite") }
+                        if sending { ProgressView().tint(.white) } else { Text("Send Invite") }
                     }
+                    .buttonStyle(.brandPrimary)
                     .disabled(email.isEmpty || sending)
-                    if let status { Text(status).font(.caption).foregroundStyle(.secondary) }
-                    Text("If they are not on SwiftLap yet, they get an email to sign up.")
-                        .font(.caption2).foregroundStyle(.secondary)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
 
                 if !pending.isEmpty {
@@ -45,23 +54,57 @@ struct CoachInviteView: View {
                 }
             }
             .navigationTitle("Invite Swimmer")
-            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } } }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel("Close")
+                }
+            }
+            .overlay(alignment: .top) { toastBanner }
             .task { await loadPending() }
+        }
+    }
+
+    @ViewBuilder
+    private var toastBanner: some View {
+        if let toast {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                Text(toast).font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(Theme.gradient, in: Capsule())
+            .shadow(color: Theme.navy.opacity(0.2), radius: 8, y: 3)
+            .padding(.top, 8)
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 
     private func send() async {
         guard let id = auth.currentUser?.id else { return }
-        sending = true; status = nil
+        sending = true; errorText = nil
         do {
             let resp = try await APIClient.shared.inviteSwimmer(coachId: id, email: email)
-            status = resp.emailed == true ? (resp.message ?? "Invite email sent") : "Invite sent to \(resp.swimmer?.name ?? "swimmer")!"
+            let message = resp.emailed == true
+                ? (resp.message ?? "Invite email sent")
+                : "Invite sent to \(resp.swimmer?.name ?? "swimmer")!"
             email = ""
             await loadPending()
+            showToast(message)
         } catch {
-            status = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
         }
         sending = false
+    }
+
+    private func showToast(_ message: String) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { toast = message }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_800_000_000)
+            withAnimation(.easeOut(duration: 0.3)) { toast = nil }
+        }
     }
 
     private func loadPending() async {

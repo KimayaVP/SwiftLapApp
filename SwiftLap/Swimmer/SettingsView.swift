@@ -42,7 +42,7 @@ struct SettingsView: View {
                 if let code = generatedCode {
                     VStack(spacing: 4) {
                         Text("Your code").font(.caption).foregroundStyle(.secondary)
-                        Text(code).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundStyle(.cyan)
+                        Text(code).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundStyle(Theme.teal)
                         Text("Enter on your watch (expires in 10 min)").font(.caption2).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)

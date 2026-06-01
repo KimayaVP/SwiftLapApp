@@ -108,7 +108,7 @@ struct VideoView: View {
                 Text("\(f.stroke) • \(shortDate(f.createdAt))").font(.subheadline.weight(.medium))
                 Spacer()
                 if let score = f.feedback.overallScore {
-                    Text("\(score)/10").font(.caption.weight(.bold)).foregroundStyle(.cyan)
+                    Text("\(score)/10").font(.caption.weight(.bold)).foregroundStyle(Theme.teal)
                 }
             }
             if let focus = f.feedback.priorityFocus {
