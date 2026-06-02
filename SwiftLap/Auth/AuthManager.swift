@@ -56,10 +56,12 @@ final class AuthManager: ObservableObject {
         biometricEnabled = UserDefaults.standard.bool(forKey: biometricKey)
         if let data = UserDefaults.standard.data(forKey: storeKey),
            let user = try? JSONDecoder().decode(Profile.self, from: data) {
-            // If biometric login is on and a protected session is saved, stay
-            // locked: hold the profile aside and require a face/touch unlock
-            // before revealing the app.
-            if biometricEnabled, BiometricStore.hasSavedSession() {
+            // If biometric login is on, stay locked on every launch: hold the
+            // profile aside and require a face/touch unlock before revealing the
+            // app. (We gate on the persisted toggle, not a Keychain probe — the
+            // actual token read happens at unlock and falls back to normal login
+            // if anything's missing.)
+            if biometricEnabled {
                 lockedProfile = user
                 isLocked = true
             } else {
