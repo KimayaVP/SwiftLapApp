@@ -19,20 +19,21 @@ struct CoachHomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    NavigationLink { CoachOverviewView() } label: { Tile(icon: "chart.bar.doc.horizontal", title: "Team Overview") }
-                    NavigationLink { CoachLeaderboardView() } label: { Tile(icon: "trophy.fill", title: "Leaderboard") }
-                    NavigationLink { CoachBatchesView() } label: { Tile(icon: "person.3.fill", title: "Batches & Swimmers") }
-                    NavigationLink { CoachRecommendView() } label: { Tile(icon: "flag.checkered", title: "Recommend Meet") }
-                    NavigationLink { CoachAssignView() } label: { Tile(icon: "target", title: "Assign") }
+                VStack(alignment: .leading, spacing: 16) {
+                    BrandMark(role: "coach")
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        NavigationLink { CoachOverviewView() } label: { Tile(icon: "chart.bar.doc.horizontal", title: "Team Overview") }
+                        NavigationLink { CoachLeaderboardView() } label: { Tile(icon: "trophy.fill", title: "Leaderboard") }
+                        NavigationLink { CoachBatchesView() } label: { Tile(icon: "person.3.fill", title: "Batches & Swimmers") }
+                        NavigationLink { CoachRecommendView() } label: { Tile(icon: "flag.checkered", title: "Recommend Meet") }
+                        NavigationLink { CoachAssignView() } label: { Tile(icon: "target", title: "Assign") }
+                    }
+                    .buttonStyle(.plain)   // suppress iOS 26 Liquid-Glass halo on the tiles
                 }
                 .padding()
             }
             .navigationTitle("Hi, \(firstName)")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    BrandMark(role: "coach")
-                }
                 ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showReview = true } label: {
