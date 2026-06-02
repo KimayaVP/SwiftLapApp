@@ -21,6 +21,8 @@ struct SwimmerHomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    BrandMark(role: "swimmer")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     ForEach(invites) { invite in
                         inviteCard(invite)
                     }
@@ -37,15 +39,13 @@ struct SwimmerHomeView: View {
                         NavigationLink { VideoView() } label: { Tile(icon: "video.fill", title: "Video & Feedback") }
                         NavigationLink { FriendsView() } label: { Tile(icon: "person.2.fill", title: "Friends") }
                     }
+                    .buttonStyle(.plain)   // suppress iOS 26 Liquid-Glass halo on the tiles
                 }
                 .padding()
             }
             .navigationTitle("Hi, \(firstName)")
             .task { await loadInvites() }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    BrandMark(role: "swimmer")
-                }
                 ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
