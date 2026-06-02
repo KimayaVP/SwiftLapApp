@@ -26,6 +26,7 @@ final class AuthManager: ObservableObject {
     @Published var biometricEnabled = false               // user turned on biometric login
     @Published var biometricError: String?
     private var lockedProfile: Profile?                   // held aside while locked
+    private var lastRefreshToken: String?                 // captured at login as an enable fallback
 
     private var supabase: SupabaseClient?
     private let redirectURL = URL(string: "com.swiftlap.ios://login-callback")!
@@ -77,19 +78,31 @@ final class AuthManager: ObservableObject {
     /// Requires an active SDK session (you must have logged in this launch).
     func enableBiometricLogin() async -> Bool {
         guard biometricAvailable else { biometricError = "\(biometricTypeName) isn't set up on this device."; return false }
-        do {
-            let session = try await client().auth.session
-            guard BiometricStore.save(accessToken: session.accessToken, refreshToken: session.refreshToken) else {
-                biometricError = "Couldn't save your session securely."; return false
-            }
-            biometricEnabled = true
-            UserDefaults.standard.set(true, forKey: biometricKey)
-            biometricError = nil
-            return true
-        } catch {
-            biometricError = "Please sign in again, then enable \(biometricTypeName)."
+
+        // Prefer the live SDK session; fall back to the refresh token captured at
+        // login (covers a session restored from a previous launch).
+        var accessToken: String?
+        var refreshToken: String?
+        if let session = try? await client().auth.session {
+            accessToken = session.accessToken
+            refreshToken = session.refreshToken
+        }
+        if refreshToken == nil, let r = lastRefreshToken {
+            refreshToken = r
+            accessToken = accessToken ?? storedToken
+        }
+        guard let access = accessToken, let refresh = refreshToken else {
+            biometricError = "Please sign out and sign in again, then enable \(biometricTypeName)."
             return false
         }
+        guard BiometricStore.save(accessToken: access, refreshToken: refresh) else {
+            biometricError = "Couldn't save your session securely."
+            return false
+        }
+        biometricEnabled = true
+        UserDefaults.standard.set(true, forKey: biometricKey)
+        biometricError = nil
+        return true
     }
 
     func disableBiometricLogin() {
@@ -109,6 +122,7 @@ final class AuthManager: ObservableObject {
             // Exchange for a fresh session (and rotate the stored refresh token).
             let session = try await client().auth.setSession(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken)
             BiometricStore.save(accessToken: session.accessToken, refreshToken: session.refreshToken)
+            lastRefreshToken = session.refreshToken
             storeToken(session.accessToken)
             if let profile = lockedProfile { currentUser = profile }
             isLocked = false
@@ -139,6 +153,7 @@ final class AuthManager: ObservableObject {
             let resp = try await APIClient.shared.login(email: email, password: password)
             guard let user = resp.user else { throw APIError.server(resp.error ?? "Login failed") }
             self.storeToken(resp.session?.accessToken)
+            self.lastRefreshToken = resp.session?.refreshToken
             self.persist(user)
             await self.loadSDKSession(resp.session)
         }
@@ -150,6 +165,7 @@ final class AuthManager: ObservableObject {
             guard let user = resp.user else { throw APIError.server(resp.error ?? "Sign up failed") }
             // Backend returns a session for new signups → log straight in.
             self.storeToken(resp.session?.accessToken)
+            self.lastRefreshToken = resp.session?.refreshToken
             self.persist(user)
             await self.loadSDKSession(resp.session)
         }
@@ -183,6 +199,7 @@ final class AuthManager: ObservableObject {
         let resp = try await APIClient.shared.oauthSync(accessToken: token)
         // The Supabase SDK already holds this session (we signed in through it),
         // so it can refresh the token; store it as a fallback too.
+        lastRefreshToken = (try? await client().auth.session)?.refreshToken
         if let user = resp.user { storeToken(token); persist(user); return }
         if resp.needsRole == true {
             pendingToken = token
@@ -261,6 +278,7 @@ final class AuthManager: ObservableObject {
     /// access token. Best-effort: login still succeeds if Supabase is unreachable.
     private func loadSDKSession(_ session: Session?) async {
         guard let session, let refresh = session.refreshToken else { return }
+        lastRefreshToken = refresh
         try? await client().auth.setSession(accessToken: session.accessToken, refreshToken: refresh)
     }
 

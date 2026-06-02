@@ -13,6 +13,7 @@ struct CoachHomeView: View {
     @State private var showDeleteConfirm = false
     @State private var showReview = false
     @State private var pendingCount = 0
+    @State private var faceIDAlert: String?
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -55,8 +56,16 @@ struct CoachHomeView: View {
                         Button { showInvite = true } label: { Label("Invite Swimmer", systemImage: "person.badge.plus") }
                         if auth.biometricAvailable {
                             Button {
-                                if auth.biometricEnabled { auth.disableBiometricLogin() }
-                                else { Task { await auth.enableBiometricLogin() } }
+                                if auth.biometricEnabled {
+                                    auth.disableBiometricLogin()
+                                    faceIDAlert = "\(auth.biometricTypeName) login turned off."
+                                } else {
+                                    Task {
+                                        let ok = await auth.enableBiometricLogin()
+                                        faceIDAlert = ok ? "\(auth.biometricTypeName) login is on. Next time you open SwiftLap, you'll unlock with \(auth.biometricTypeName)."
+                                                         : (auth.biometricError ?? "Couldn't enable \(auth.biometricTypeName).")
+                                    }
+                                }
                             } label: {
                                 Label(auth.biometricEnabled ? "Disable \(auth.biometricTypeName) login" : "Enable \(auth.biometricTypeName) login",
                                       systemImage: auth.biometricEnabled ? "lock.open" : "faceid")
@@ -79,6 +88,11 @@ struct CoachHomeView: View {
                 Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }
             } message: {
                 Text("This permanently deletes your account and all your data. This cannot be undone.")
+            }
+            .alert("Face ID", isPresented: Binding(get: { faceIDAlert != nil }, set: { if !$0 { faceIDAlert = nil } })) {
+                Button("OK", role: .cancel) { faceIDAlert = nil }
+            } message: {
+                Text(faceIDAlert ?? "")
             }
         }
     }
