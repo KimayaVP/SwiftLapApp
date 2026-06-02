@@ -75,6 +75,14 @@ Example: `xcrun simctl launch booted com.swiftlap.ios -uitestSwimmer -screen vid
 - **API auth tokens (since 2026-05-24):** the backend now requires a Bearer token on every `/api` route. `AuthManager` captures the session token on email/OAuth login, hands the session to the Supabase SDK (for auto-refresh), and sets `APIClient.tokenProvider`, which attaches the header to every request (incl. multipart upload). The watch leaves `tokenProvider` nil — it only calls the public `/watch/*` device endpoints.
 - Bundle ID `com.swiftlap.ios`; min iOS 17; watch bundle `com.swiftlap.ios.watch` (embedded in the iOS app, `WKCompanionAppBundleIdentifier` + `WKRunsIndependentlyOfCompanionApp`). Dev team `98QNV4FG3G` baked into `project.yml`. (Watch id was `com.swiftlap.ios.watchkitapp` until 2026-06-01, renamed because the old id got stuck reserved under Kimaya's free Personal Team — see signing note below.)
 
+## Face ID / Touch ID login (branch `FaceID-Implementation`, 2026-06-01)
+
+Biometric **re-authentication** of an existing session — NOT a standalone identity (you still must log in once with email/Google/Apple; biometrics only unlock a session already saved on this device, and a new device/reinstall/logout needs a real login again).
+- **`BiometricStore.swift`** — `Biometrics` (availability, Face ID vs Touch ID name/symbol via `LocalAuthentication`) + `BiometricStore` (Keychain item holding `{accessToken, refreshToken}` behind `.biometryCurrentSet` access control, `…WhenUnlockedThisDeviceOnly`).
+- **`AuthManager`** — `enableBiometricLogin()` (stash current Supabase session tokens), `disableBiometricLogin()`, `isLocked`/`lockedProfile` (on launch, if enabled + a saved session exists, hold the profile aside and stay locked), `unlockWithBiometrics()` (Face ID → read tokens → `auth.setSession(...)` to refresh **and rotate** the stored refresh token → reveal profile), `useAnotherSignIn()` escape hatch. `logout()` clears the biometric session.
+- **UI** — `BiometricLockView` (auto-prompts on appear; gated in `ContentView` before login/role views). Toggle in swimmer `SettingsView` ("Security" section) + a coach-menu item in `CoachHomeView`. `NSFaceIDUsageDescription` added in `project.yml`.
+- Works for **all login types** (stores the refresh token, so Google/Apple users with no password are covered). **Build succeeds**; the actual Face ID prompt can't be exercised in the headless simulator (no CLI biometric enrollment) — **verify on a real device**. Branch pushed, not merged.
+
 ## Pre-App-Store UX polish (2026-06-01)
 
 Feedback pass before submission (replicated on web + backend — see `../SwiftLap/CLAUDE.md`):

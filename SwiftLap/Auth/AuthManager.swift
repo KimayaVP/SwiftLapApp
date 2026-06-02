@@ -21,10 +21,17 @@ final class AuthManager: ObservableObject {
     @Published var pendingName: String?
     private var pendingToken: String?
 
+    // Face ID / Touch ID login
+    @Published var isLocked = false                       // session exists but awaiting a face/touch unlock
+    @Published var biometricEnabled = false               // user turned on biometric login
+    @Published var biometricError: String?
+    private var lockedProfile: Profile?                   // held aside while locked
+
     private var supabase: SupabaseClient?
     private let redirectURL = URL(string: "com.swiftlap.ios://login-callback")!
     private let storeKey = "currentUser"
     private let tokenKey = "accessToken"
+    private let biometricKey = "biometricEnabled"
     private var storedToken: String?
 
     init() {
@@ -45,11 +52,84 @@ final class AuthManager: ObservableObject {
             return
         }
         #endif
+        biometricEnabled = UserDefaults.standard.bool(forKey: biometricKey)
         if let data = UserDefaults.standard.data(forKey: storeKey),
            let user = try? JSONDecoder().decode(Profile.self, from: data) {
-            currentUser = user
-            PushManager.shared.enable()   // restored session — refresh push token
+            // If biometric login is on and a protected session is saved, stay
+            // locked: hold the profile aside and require a face/touch unlock
+            // before revealing the app.
+            if biometricEnabled, BiometricStore.hasSavedSession() {
+                lockedProfile = user
+                isLocked = true
+            } else {
+                currentUser = user
+                PushManager.shared.enable()   // restored session — refresh push token
+            }
         }
+    }
+
+    // MARK: - Face ID / Touch ID
+
+    var biometricAvailable: Bool { Biometrics.isAvailable() }
+    var biometricTypeName: String { Biometrics.typeName() }
+
+    /// Turn on biometric login: stash the current Supabase session behind Face ID.
+    /// Requires an active SDK session (you must have logged in this launch).
+    func enableBiometricLogin() async -> Bool {
+        guard biometricAvailable else { biometricError = "\(biometricTypeName) isn't set up on this device."; return false }
+        do {
+            let session = try await client().auth.session
+            guard BiometricStore.save(accessToken: session.accessToken, refreshToken: session.refreshToken) else {
+                biometricError = "Couldn't save your session securely."; return false
+            }
+            biometricEnabled = true
+            UserDefaults.standard.set(true, forKey: biometricKey)
+            biometricError = nil
+            return true
+        } catch {
+            biometricError = "Please sign in again, then enable \(biometricTypeName)."
+            return false
+        }
+    }
+
+    func disableBiometricLogin() {
+        BiometricStore.clear()
+        biometricEnabled = false
+        UserDefaults.standard.set(false, forKey: biometricKey)
+    }
+
+    /// Face ID prompt → read the saved tokens → refresh the session → unlock.
+    func unlockWithBiometrics() async {
+        biometricError = nil
+        guard let tokens = BiometricStore.read(reason: "Unlock SwiftLap") else {
+            biometricError = "Couldn't unlock. Try again or use another sign-in."
+            return
+        }
+        do {
+            // Exchange for a fresh session (and rotate the stored refresh token).
+            let session = try await client().auth.setSession(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken)
+            BiometricStore.save(accessToken: session.accessToken, refreshToken: session.refreshToken)
+            storeToken(session.accessToken)
+            if let profile = lockedProfile { currentUser = profile }
+            isLocked = false
+            lockedProfile = nil
+            PushManager.shared.enable()
+        } catch {
+            // Refresh token expired / revoked — fall back to a real login.
+            biometricError = "Your session expired. Please sign in again."
+            useAnotherSignIn()
+        }
+    }
+
+    /// Escape hatch from the lock screen: forget the biometric session and show
+    /// the normal login options.
+    func useAnotherSignIn() {
+        disableBiometricLogin()
+        lockedProfile = nil
+        currentUser = nil
+        isLocked = false
+        UserDefaults.standard.removeObject(forKey: storeKey)
+        storeToken(nil)
     }
 
     // MARK: - Email
@@ -148,6 +228,9 @@ final class AuthManager: ObservableObject {
 
     func logout() {
         PushManager.shared.disable()
+        disableBiometricLogin()       // forget any saved Face ID session
+        lockedProfile = nil
+        isLocked = false
         currentUser = nil
         storeToken(nil)
         UserDefaults.standard.removeObject(forKey: storeKey)

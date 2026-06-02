@@ -29,6 +29,7 @@ targets:
       properties:
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false
+        NSFaceIDUsageDescription: "SwiftLap uses Face ID to unlock the app and keep you signed in."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         CFBundleURLTypes:

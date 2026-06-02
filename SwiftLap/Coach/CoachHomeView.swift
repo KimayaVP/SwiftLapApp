@@ -53,6 +53,15 @@ struct CoachHomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button { showInvite = true } label: { Label("Invite Swimmer", systemImage: "person.badge.plus") }
+                        if auth.biometricAvailable {
+                            Button {
+                                if auth.biometricEnabled { auth.disableBiometricLogin() }
+                                else { Task { await auth.enableBiometricLogin() } }
+                            } label: {
+                                Label(auth.biometricEnabled ? "Disable \(auth.biometricTypeName) login" : "Enable \(auth.biometricTypeName) login",
+                                      systemImage: auth.biometricEnabled ? "lock.open" : "faceid")
+                            }
+                        }
                         Button(role: .destructive) { auth.logout() } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
                         Button(role: .destructive) { showDeleteConfirm = true } label: { Label("Delete Account", systemImage: "trash") }
                     } label: {
