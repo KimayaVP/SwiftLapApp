@@ -81,7 +81,7 @@ Biometric **re-authentication** of an existing session — NOT a standalone iden
 - **`BiometricStore.swift`** — `Biometrics` (availability, Face ID vs Touch ID name/symbol via `LocalAuthentication`) + `BiometricStore` (Keychain item holding `{accessToken, refreshToken}` behind `.biometryCurrentSet` access control, `…WhenUnlockedThisDeviceOnly`).
 - **`AuthManager`** — `enableBiometricLogin()` (stash current Supabase session tokens), `disableBiometricLogin()`, `isLocked`/`lockedProfile` (on launch, if enabled + a saved session exists, hold the profile aside and stay locked), `unlockWithBiometrics()` (Face ID → read tokens → `auth.setSession(...)` to refresh **and rotate** the stored refresh token → reveal profile), `useAnotherSignIn()` escape hatch. `logout()` clears the biometric session.
 - **UI** — `BiometricLockView` (auto-prompts on appear; gated in `ContentView` before login/role views). Toggle in swimmer `SettingsView` ("Security" section) + a coach-menu item in `CoachHomeView`. `NSFaceIDUsageDescription` added in `project.yml`.
-- Works for **all login types** (stores the refresh token, so Google/Apple users with no password are covered). **Build succeeds**; the actual Face ID prompt can't be exercised in the headless simulator (no CLI biometric enrollment) — **verify on a real device**. Branch pushed, not merged.
+- Works for **all login types** (stores the refresh token, so Google/Apple users with no password are covered). **Build succeeds**; the actual Face ID prompt can't be exercised in the headless simulator (no CLI biometric enrollment). ✅ **Verified working on Kimaya's real iPhone 2026-06-04** (enable toggle → force-quit → reopen → Face ID unlock). Branch pushed, not yet merged to `main`.
 
 ## Pre-App-Store UX polish (2026-06-01)
 
@@ -120,7 +120,7 @@ M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens ·
 5. **Watch phone-pairing** (WatchConnectivity) — deferred; needs companion setup + real devices.
 
 ### Config / human steps still pending (need father / account holder)
-- Real **1024px app icon** (assets are placeholders).
+- ✅ **Real 1024px app icon DONE 2026-06-06** — finalized SwiftLap logo (navy + white stopwatch + blue waves). Source `SwiftLap Logo.png` (2000², no alpha) was in iCloud Drive Downloads (`~/Library/Mobile Documents/com~apple~CloudDocs/Downloads/`). Processed with PIL (`/tmp` script): brightness-keyed the emblem out of the navy, **dropped the "SwiftLap" wordmark**, composited onto a navy vertical-gradient 1024² **opaque** canvas (no alpha, no baked rounded corners — Apple masks). Same PNG dropped into both `SwiftLap/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` and `Watch/.../AppIcon-1024.png` (single universal 1024 entry each). Builds clean.
 - Register `com.swiftlap.ios` as an **App ID with Sign in with Apple** (done 2026-05-26 under his Individual team `98QNV4FG3G`); set up **code signing** under his team (see below); create **App Store Connect** record + screenshots + submit (developer name will show as "Vishal Parwani Lakshmichand").
 - ✅ Supabase redirect URL `com.swiftlap.ios://login-callback` is configured — **Google sign-in verified working on a real iPhone (2026-05-27)**.
 
