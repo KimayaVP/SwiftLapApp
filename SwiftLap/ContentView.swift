@@ -11,7 +11,9 @@ struct ContentView: View {
     @EnvironmentObject var auth: AuthManager
 
     var body: some View {
-        if auth.currentUser == nil {
+        if auth.isLocked {
+            BiometricLockView()
+        } else if auth.currentUser == nil {
             LoginView()
         } else if auth.currentUser?.role == "coach" {
             #if DEBUG

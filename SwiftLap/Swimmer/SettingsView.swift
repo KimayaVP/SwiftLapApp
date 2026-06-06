@@ -13,9 +13,31 @@ struct SettingsView: View {
     @State private var generatedCode: String?
     @State private var loading = true
     @State private var showDeleteConfirm = false
+    @State private var faceIDOn = false
 
     var body: some View {
         List {
+            if auth.biometricAvailable {
+                Section {
+                    Toggle("Log in with \(auth.biometricTypeName)", isOn: $faceIDOn)
+                        .onChange(of: faceIDOn) { _, newValue in
+                            Task {
+                                if newValue {
+                                    let ok = await auth.enableBiometricLogin()
+                                    if !ok { faceIDOn = false }
+                                } else {
+                                    auth.disableBiometricLogin()
+                                }
+                            }
+                        }
+                    if let e = auth.biometricError { Text(e).font(.caption).foregroundStyle(Theme.coral) }
+                } header: {
+                    Text("Security")
+                } footer: {
+                    Text("Unlock SwiftLap with \(auth.biometricTypeName) instead of retyping your login. You'll still sign in normally on a new device.")
+                }
+            }
+
             Section("Leaderboard") {
                 Toggle("Show me on the coach leaderboard", isOn: $showOnLeaderboard)
                     .onChange(of: showOnLeaderboard) { _, newValue in
@@ -73,6 +95,7 @@ struct SettingsView: View {
     private func load() async {
         guard let id = auth.currentUser?.id else { return }
         loading = true
+        faceIDOn = auth.biometricEnabled
         showOnLeaderboard = (try? await APIClient.shared.fetchLeaderboardVisibility(swimmerId: id)) ?? true
         watch = try? await APIClient.shared.watchStatus(swimmerId: id)
         loading = false
