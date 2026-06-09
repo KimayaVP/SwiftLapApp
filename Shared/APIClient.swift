@@ -519,7 +519,7 @@ extension APIClient {
         try await postExpectingError("/api/watch/unlink", UnlinkBody(swimmerId: swimmerId))
     }
 
-    // Watch app: link via 6-digit code, and send a workout
+    // Watch app: link via 4-digit code, and send a workout
     struct VerifyCodeBody: Encodable { let code: String }
     struct VerifyCodeResponse: Decodable { let swimmerId: String?; let watchToken: String?; let error: String? }
     /// Returns the linked swimmer id and a device token to authenticate future syncs.
