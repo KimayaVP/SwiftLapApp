@@ -17,7 +17,7 @@ import SwiftUI
 struct AppInfoSections: View {
     // MARK: - Fill these in later ----------------------------------------
     /// Support / feedback email address. Leave empty to show a placeholder.
-    private let feedbackEmail = ""   // TODO: e.g. "hello@swiftlap.app"
+    private let feedbackEmail = "feedback@swiftlap.in"
     /// Developer bio shown under "About the Developer". Leave empty for placeholder.
     private let developerBio = """
     My alarm goes off at 4 a.m. every day! I'm Kimaya, a Grade 10 student from Chennai, India. I am a competitive swimmer and top-10 finisher at the CISCE National Swimming Championships 2025.

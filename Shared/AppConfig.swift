@@ -9,5 +9,5 @@ import Foundation
 
 enum AppConfig {
     /// The deployed SwiftLap backend. Both the iOS app and the watch app talk to this.
-    static let apiBaseURL = URL(string: "https://swiftlap.onrender.com")!
+    static let apiBaseURL = URL(string: "https://swiftlap.in")!
 }
