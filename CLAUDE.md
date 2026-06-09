@@ -98,6 +98,15 @@ Feedback pass before submission (replicated on web + backend — see `../SwiftLa
 - **New `APIClient` methods:** `assignedGoals`, `assignedRoutines`, `sentRecommendations`, `updateRecommendation`, `deleteRecommendation`. Models gained optional `Goal.swimmerName/status`, `CoachRoutine.swimmerId/swimmerName`, `MeetRecommendation.swimmerName`.
 - **Config note (not code):** the Google sign-in consent screen showing the Supabase project domain is fixed in the Supabase/Google OAuth config (custom domain / OAuth consent app name), not in the app.
 
+## Watch: 4-digit login + offline sync + pool size (2026-06-09)
+
+Caught up the embedded watch app after the backend moved to 4-digit pairing codes (see `../SwiftLap` watch section). All in `Watch/`:
+- **`WatchLoginView`** — Scribble `TextField` replaced by a 4-box display + 0–9 tap pad + backspace; Link gated on all 4 boxes filled; copy "4-digit". (Ported from the old `SwiftLapWatch` repo's closed PR #8.)
+- **`WorkoutManager`** — **offline sync queue**: a failed `/watch/workout` upload is persisted as JSON under `Documents/pending/` and retried on launch, on `WKApplication.willEnterForegroundNotification`, and via a manual "N pending syncs" button on the start screen (`pendingSyncCount`). (Ported from closed PR #9.)
+- **Pool size is meters-only (25 m / 50 m)** per product decision — the old 25 yd / 50 yd picker rows were removed; `poolLength` snaps any legacy stored value (incl. 22.86 / 45.72) to the nearest of 25/50. (Closed PR #10.)
+
+The standalone `SwiftLapWatch` repo is superseded — never merge there; port into `Watch/` instead.
+
 ## Settings: Feedback + About the Developer (2026-06-06)
 
 Shared `SwiftLap/AppInfoSections.swift` renders two `Section`s — **Feedback** and **About the Developer** — reused by both roles so they stay identical:

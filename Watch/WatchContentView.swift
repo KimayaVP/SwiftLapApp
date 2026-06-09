@@ -71,6 +71,14 @@ struct WatchContentView: View {
                             .font(.headline)
                         }
                         .buttonStyle(.borderedProminent).tint(.cyan)
+                        if workoutManager.pendingSyncCount > 0 {
+                            Button(action: { workoutManager.retryPendingSyncs() }) {
+                                Text("↑ \(workoutManager.pendingSyncCount) pending sync\(workoutManager.pendingSyncCount == 1 ? "" : "s")")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                            .buttonStyle(.plain)
+                        }
                         HStack {
                             Button(action: { showingSettings = true }) {
                                 Image(systemName: "gearshape")
@@ -135,8 +143,6 @@ struct WatchSettingsView: View {
             Picker("Pool", selection: $poolLength) {
                 Text("25 m").tag(25.0)
                 Text("50 m").tag(50.0)
-                Text("25 yd").tag(22.86)
-                Text("50 yd").tag(45.72)
             }
             .pickerStyle(.wheel)
             Button("Done") { dismiss() }.buttonStyle(.borderedProminent)

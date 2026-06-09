@@ -10,6 +10,23 @@
 import Foundation
 import HealthKit
 import Combine
+import WatchKit
+
+/// A finished workout awaiting upload. Persisted to disk when a sync fails so it
+/// survives app quit / loss of connectivity, then retried on launch/foreground.
+private struct PendingWorkout: Codable {
+    let swimmerId: String
+    let duration: Int
+    let distance: Double
+    let laps: Int
+    let strokeCount: Int
+    let avgHeartRate: Double
+    let calories: Double
+    let lapTimes: [Double]
+    let lapStrokes: [Int]
+    let fatigueLevel: String
+    let poolLength: Double
+}
 
 class WorkoutManager: NSObject, ObservableObject {
 
@@ -23,10 +40,15 @@ class WorkoutManager: NSObject, ObservableObject {
     @Published var fatigueLevel: String = "Fresh 💪"
     @Published var currentPace: String = "--:--"
     @Published var avgStrokesPerLap: Double = 0
+    @Published var pendingSyncCount: Int = 0
 
+    // Only 25 m and 50 m are supported. Snap any legacy stored value (incl. the
+    // old 25 yd / 50 yd options, 22.86 / 45.72) to the nearest of the two.
     @Published var poolLength: Double = {
         let v = UserDefaults.standard.double(forKey: "poolLengthMeters")
-        return v == 0.0 ? 25.0 : v
+        if v == 25.0 || v == 50.0 { return v }
+        if v == 0.0 { return 25.0 }
+        return v < 37.5 ? 25.0 : 50.0
     }() {
         didSet { UserDefaults.standard.set(poolLength, forKey: "poolLengthMeters") }
     }
@@ -43,6 +65,13 @@ class WorkoutManager: NSObject, ObservableObject {
     override init() {
         super.init()
         requestAuthorization()
+        refreshPendingCount()
+        retryPendingSyncs()
+        // Retry whenever the app comes back to the foreground (e.g. connectivity restored).
+        NotificationCenter.default.addObserver(
+            forName: WKApplication.willEnterForegroundNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.retryPendingSyncs() }
     }
 
     func requestAuthorization() {
@@ -196,19 +225,72 @@ class WorkoutManager: NSObject, ObservableObject {
             return
         }
         let avgHR = heartRates.isEmpty ? 0.0 : heartRates.reduce(0, +) / Double(heartRates.count)
-        let snapshot = (elapsedSeconds, distance, lapCount, strokeCount, avgHR, calories, lapTimes, lapStrokes, fatigueLevel, poolLength)
+        // Capture the values now (before the async hop) into the persistable payload.
+        let payload = PendingWorkout(
+            swimmerId: swimmerId, duration: elapsedSeconds, distance: distance, laps: lapCount,
+            strokeCount: strokeCount, avgHeartRate: avgHR, calories: calories,
+            lapTimes: lapTimes, lapStrokes: lapStrokes, fatigueLevel: fatigueLevel, poolLength: poolLength
+        )
         Task {
             do {
-                try await APIClient.shared.sendWatchWorkout(
-                    swimmerId: swimmerId,
-                    duration: snapshot.0, distance: snapshot.1, laps: snapshot.2,
-                    strokeCount: snapshot.3, avgHeartRate: snapshot.4, calories: snapshot.5,
-                    lapTimes: snapshot.6, lapStrokes: snapshot.7, fatigueLevel: snapshot.8, poolLength: snapshot.9,
-                    watchToken: WatchStore.watchToken()
-                )
+                try await send(payload)
                 print("Workout synced to SwiftLap!")
             } catch {
-                print("Failed to sync: \(error.localizedDescription)")
+                // Network/server failure — persist to disk and retry on next launch/foreground.
+                print("Sync failed, queuing for retry: \(error.localizedDescription)")
+                queueWorkout(payload)
+            }
+        }
+    }
+
+    private func send(_ p: PendingWorkout) async throws {
+        try await APIClient.shared.sendWatchWorkout(
+            swimmerId: p.swimmerId, duration: p.duration, distance: p.distance, laps: p.laps,
+            strokeCount: p.strokeCount, avgHeartRate: p.avgHeartRate, calories: p.calories,
+            lapTimes: p.lapTimes, lapStrokes: p.lapStrokes, fatigueLevel: p.fatigueLevel,
+            poolLength: p.poolLength, watchToken: WatchStore.watchToken()
+        )
+    }
+
+    // MARK: - Pending sync queue (offline resilience)
+
+    private var pendingDir: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("pending")
+    }
+
+    private func ensurePendingDir() {
+        try? FileManager.default.createDirectory(at: pendingDir, withIntermediateDirectories: true)
+    }
+
+    private func queueWorkout(_ payload: PendingWorkout) {
+        ensurePendingDir()
+        let file = pendingDir.appendingPathComponent("\(UUID().uuidString).json")
+        try? JSONEncoder().encode(payload).write(to: file)
+        refreshPendingCount()
+    }
+
+    private func refreshPendingCount() {
+        let count = (try? FileManager.default.contentsOfDirectory(at: pendingDir, includingPropertiesForKeys: nil))?
+            .filter { $0.pathExtension == "json" }.count ?? 0
+        DispatchQueue.main.async { self.pendingSyncCount = count }
+    }
+
+    /// Re-upload any workouts that previously failed to sync; delete each on success.
+    func retryPendingSyncs() {
+        ensurePendingDir()
+        guard let files = try? FileManager.default.contentsOfDirectory(at: pendingDir, includingPropertiesForKeys: nil) else { return }
+        for file in files where file.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: file),
+                  let payload = try? JSONDecoder().decode(PendingWorkout.self, from: data) else { continue }
+            Task {
+                do {
+                    try await send(payload)
+                    try? FileManager.default.removeItem(at: file)
+                    refreshPendingCount()
+                } catch {
+                    // Still failing — keep the file for the next retry.
+                }
             }
         }
     }
