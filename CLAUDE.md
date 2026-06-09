@@ -98,6 +98,14 @@ Feedback pass before submission (replicated on web + backend — see `../SwiftLa
 - **New `APIClient` methods:** `assignedGoals`, `assignedRoutines`, `sentRecommendations`, `updateRecommendation`, `deleteRecommendation`. Models gained optional `Goal.swimmerName/status`, `CoachRoutine.swimmerId/swimmerName`, `MeetRecommendation.swimmerName`.
 - **Config note (not code):** the Google sign-in consent screen showing the Supabase project domain is fixed in the Supabase/Google OAuth config (custom domain / OAuth consent app name), not in the app.
 
+## Settings: Feedback + About the Developer (2026-06-06)
+
+Shared `SwiftLap/AppInfoSections.swift` renders two `Section`s — **Feedback** and **About the Developer** — reused by both roles so they stay identical:
+- **Swimmer:** embedded in `SettingsView` (between Apple Watch and Log out).
+- **Coach:** the coach has no standalone settings screen, so `CoachSettingsView` (same file) hosts them in a sheet, opened from a new **Settings** item in the `CoachHomeView` toolbar menu.
+
+The **feedback email** and **developer bio** are PLACEHOLDERS — two constants at the top of `AppInfoSections.swift` (`feedbackEmail`, `developerBio`). While empty they show "coming soon" copy; set them and the UI switches to a `mailto:` link + the bio automatically. Kimaya will supply both later. **Parity TODO:** replicate these two sections on web (+ Android) per cross-platform parity.
+
 ## Status: milestones M1–M7 done
 
 M1 scaffold · M2 shared models + API client · M3 auth · M4 swimmer screens · M5 coach screens · M6 watch migration (embedded + independent; start-screen scroll bug fixed) · M7 App Store prep (in-app account deletion + privacy policy).

@@ -12,6 +12,7 @@ struct CoachHomeView: View {
     @State private var showInvite = false
     @State private var showDeleteConfirm = false
     @State private var showReview = false
+    @State private var showSettings = false
     @State private var pendingCount = 0
     @State private var faceIDAlert: String?
 
@@ -72,6 +73,7 @@ struct CoachHomeView: View {
                                       systemImage: auth.biometricEnabled ? "lock.open" : "faceid")
                             }
                         }
+                        Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
                         Button(role: .destructive) { auth.logout() } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
                         Button(role: .destructive) { showDeleteConfirm = true } label: { Label("Delete Account", systemImage: "trash") }
                     } label: {
@@ -84,6 +86,7 @@ struct CoachHomeView: View {
                 PendingReviewView().environmentObject(auth)
             }
             .sheet(isPresented: $showInvite) { CoachInviteView() }
+            .sheet(isPresented: $showSettings) { CoachSettingsView() }
             .alert("Delete Account?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {}
                 Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }
