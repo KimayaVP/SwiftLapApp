@@ -113,7 +113,7 @@ Shared `SwiftLap/AppInfoSections.swift` renders two `Section`s — **Feedback** 
 - **Swimmer:** embedded in `SettingsView` (between Apple Watch and Log out).
 - **Coach:** the coach has no standalone settings screen, so `CoachSettingsView` (same file) hosts them in a sheet, opened from a new **Settings** item in the `CoachHomeView` toolbar menu.
 
-The **feedback email** and **developer bio** are PLACEHOLDERS — two constants at the top of `AppInfoSections.swift` (`feedbackEmail`, `developerBio`). While empty they show "coming soon" copy; set them and the UI switches to a `mailto:` link + the bio automatically. Kimaya will supply both later. **Parity TODO:** replicate these two sections on web (+ Android) per cross-platform parity.
+The content lives in constants at the top of `AppInfoSections.swift` (`feedbackEmail`, `developerBio`, `contactEmail`); empty values fall back to "coming soon" copy. **Filled in 2026-06-10:** `feedbackEmail` = `feedback@swiftlap.in` (Feedback section), `contactEmail` = `contactus@swiftlap.in` (shown as a mailto link under the bio in About the Developer), plus Kimaya's real bio. **Parity DONE** — same emails + bio on web (`../SwiftLap/public/index.html`) and Android (`AppInfo.kt`). Note: the `swiftlap.in` mailboxes aren't deliverable yet (domain/email setup pending) — the `mailto:` links are valid for App Store submission regardless.
 
 ## Status: milestones M1–M7 done
 

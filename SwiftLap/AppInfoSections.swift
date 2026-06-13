@@ -26,6 +26,8 @@ struct AppInfoSections: View {
 
     Built by a swimmer who knows the challenges of generic group workouts while trying to achieve their own goals.
     """
+    /// Contact address shown under the developer bio. Leave empty to hide.
+    private let contactEmail = "contactus@swiftlap.in"
     // --------------------------------------------------------------------
 
     var body: some View {
@@ -60,6 +62,12 @@ struct AppInfoSections: View {
                 } else {
                     Text(developerBio)
                         .font(.callout)
+                    if !contactEmail.isEmpty, let url = URL(string: "mailto:\(contactEmail)") {
+                        Link(destination: url) {
+                            Label("Contact: \(contactEmail)", systemImage: "envelope")
+                                .font(.caption)
+                        }
+                    }
                 }
             } header: {
                 Text("About the Developer")
