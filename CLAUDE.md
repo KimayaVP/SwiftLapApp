@@ -113,7 +113,7 @@ Shared `SwiftLap/AppInfoSections.swift` renders two `Section`s — **Feedback** 
 - **Swimmer:** embedded in `SettingsView` (between Apple Watch and Log out).
 - **Coach:** the coach has no standalone settings screen, so `CoachSettingsView` (same file) hosts them in a sheet, opened from a new **Settings** item in the `CoachHomeView` toolbar menu.
 
-The content lives in constants at the top of `AppInfoSections.swift` (`feedbackEmail`, `developerBio`, `contactEmail`); empty values fall back to "coming soon" copy. **Filled in 2026-06-10:** `feedbackEmail` = `feedback@swiftlap.in` (Feedback section), `contactEmail` = `contactus@swiftlap.in` (shown as a mailto link under the bio in About the Developer), plus Kimaya's real bio. **Parity DONE** — same emails + bio on web (`../SwiftLap/public/index.html`) and Android (`AppInfo.kt`). Note: the `swiftlap.in` mailboxes aren't deliverable yet (domain/email setup pending) — the `mailto:` links are valid for App Store submission regardless.
+The content lives in constants at the top of `AppInfoSections.swift` (`feedbackEmail`, `developerBio`, `contactEmail`); empty values fall back to "coming soon" copy. **Filled in 2026-06-10, emails corrected 2026-06-14:** `feedbackEmail` = `feedback@swiftlap.in` (Feedback section), `contactEmail` = `contact@swiftlap.in` (shown as a mailto link under the bio in About the Developer), plus Kimaya's real bio. **Parity DONE** — same emails + bio on web (`../SwiftLap/public/index.html`) and Android (`AppInfo.kt`). The `swiftlap.in` mailboxes are now live (Google Workspace), so the `mailto:` links are deliverable.
 
 ## Status: milestones M1–M7 done
 

@@ -27,7 +27,7 @@ struct AppInfoSections: View {
     Built by a swimmer who knows the challenges of generic group workouts while trying to achieve their own goals.
     """
     /// Contact address shown under the developer bio. Leave empty to hide.
-    private let contactEmail = "contactus@swiftlap.in"
+    private let contactEmail = "contact@swiftlap.in"
     // --------------------------------------------------------------------
 
     var body: some View {
