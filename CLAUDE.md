@@ -114,11 +114,14 @@ screen (replacing the old in-Settings `AppInfoSections` + `CoachSettingsView`, b
 removed) with three sections: **Contact us** (`contact@swiftlap.in`), **Feedback**
 (`feedback@swiftlap.in`), and **About the developer** (circular photo + Kimaya's bio).
 Constants live at the top of the file. Reached from a **direct toolbar icon** (envelope)
-next to the notifications bell on both roles — swimmer `SwimmerHomeView` toolbar is
-bell + envelope (Contact) + gear (Settings); coach `CoachHomeView` toolbar is bell +
-review + envelope (Contact, opens it as a sheet) + ellipsis menu (Invite/biometric/
-Log out/Delete). `SettingsView` no longer carries these sections; swimmer Log out +
-Delete live inside `SettingsView`.
+next to the notifications bell on both roles. Both roles also have a **visible gear
+(Settings)**:
+- **Swimmer** `SwimmerHomeView` toolbar = bell + envelope (Contact) + gear
+  (`SettingsView`). Log out + Delete live inside `SettingsView`.
+- **Coach** `CoachHomeView` toolbar = bell + review + invite (person.badge.plus) +
+  envelope (Contact sheet) + gear → **`CoachSettingsView`** (in `CoachHomeView.swift`):
+  Security (biometric) + Log out + Delete, mirroring the swimmer's Settings minus the
+  swimmer-only Leaderboard/Watch rows. The old coach ellipsis menu was removed.
 
 The photo is the **`DeveloperPhoto`** asset (`Assets.xcassets/DeveloperPhoto.imageset/`,
 currently a **placeholder** `developer_photo.png` — replace with Kimaya's real square

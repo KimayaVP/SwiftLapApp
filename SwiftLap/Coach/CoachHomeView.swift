@@ -10,11 +10,10 @@ import SwiftUI
 struct CoachHomeView: View {
     @EnvironmentObject var auth: AuthManager
     @State private var showInvite = false
-    @State private var showDeleteConfirm = false
     @State private var showReview = false
+    @State private var showContact = false
     @State private var showSettings = false
     @State private var pendingCount = 0
-    @State private var faceIDAlert: String?
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -54,34 +53,16 @@ struct CoachHomeView: View {
                     .accessibilityLabel("Videos to review")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Image(systemName: "envelope") }
+                    Button { showInvite = true } label: { Image(systemName: "person.badge.plus") }
+                        .accessibilityLabel("Invite Swimmer")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showContact = true } label: { Image(systemName: "envelope") }
                         .accessibilityLabel("Contact & Feedback")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button { showInvite = true } label: { Label("Invite Swimmer", systemImage: "person.badge.plus") }
-                        if auth.biometricAvailable {
-                            Button {
-                                if auth.biometricEnabled {
-                                    auth.disableBiometricLogin()
-                                    faceIDAlert = "\(auth.biometricTypeName) login turned off."
-                                } else {
-                                    Task {
-                                        let ok = await auth.enableBiometricLogin()
-                                        faceIDAlert = ok ? "\(auth.biometricTypeName) login is on. Next time you open SwiftLap, you'll unlock with \(auth.biometricTypeName)."
-                                                         : (auth.biometricError ?? "Couldn't enable \(auth.biometricTypeName).")
-                                    }
-                                }
-                            } label: {
-                                Label(auth.biometricEnabled ? "Disable \(auth.biometricTypeName) login" : "Enable \(auth.biometricTypeName) login",
-                                      systemImage: auth.biometricEnabled ? "lock.open" : "faceid")
-                            }
-                        }
-                        Button(role: .destructive) { auth.logout() } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
-                        Button(role: .destructive) { showDeleteConfirm = true } label: { Label("Delete Account", systemImage: "trash") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
+                    Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                        .accessibilityLabel("Settings")
                 }
             }
             .task { await loadPending() }
@@ -89,23 +70,13 @@ struct CoachHomeView: View {
                 PendingReviewView().environmentObject(auth)
             }
             .sheet(isPresented: $showInvite) { CoachInviteView() }
-            .sheet(isPresented: $showSettings) {
+            .sheet(isPresented: $showContact) {
                 NavigationStack {
                     ContactFeedbackView()
-                        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showSettings = false } } }
+                        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showContact = false } } }
                 }
             }
-            .alert("Delete Account?", isPresented: $showDeleteConfirm) {
-                Button("Cancel", role: .cancel) {}
-                Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }
-            } message: {
-                Text("This permanently deletes your account and all your data. This cannot be undone.")
-            }
-            .alert("Face ID", isPresented: Binding(get: { faceIDAlert != nil }, set: { if !$0 { faceIDAlert = nil } })) {
-                Button("OK", role: .cancel) { faceIDAlert = nil }
-            } message: {
-                Text(faceIDAlert ?? "")
-            }
+            .sheet(isPresented: $showSettings) { CoachSettingsView() }
         }
     }
 
@@ -116,6 +87,64 @@ struct CoachHomeView: View {
     private func loadPending() async {
         guard let id = auth.currentUser?.id else { return }
         pendingCount = (try? await APIClient.shared.pendingReviewVideos(coachId: id))?.count ?? 0
+    }
+}
+
+// MARK: - Coach Settings (Security + Log out + Delete)
+// The coach now has a real Settings screen mirroring the swimmer's (minus the
+// swimmer-only Leaderboard/Apple Watch rows), reached from a gear icon.
+
+struct CoachSettingsView: View {
+    @EnvironmentObject var auth: AuthManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var faceIDOn = false
+    @State private var showDeleteConfirm = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if auth.biometricAvailable {
+                    Section {
+                        Toggle("Log in with \(auth.biometricTypeName)", isOn: $faceIDOn)
+                            .onChange(of: faceIDOn) { _, newValue in
+                                Task {
+                                    if newValue {
+                                        let ok = await auth.enableBiometricLogin()
+                                        if !ok { faceIDOn = false }
+                                    } else {
+                                        auth.disableBiometricLogin()
+                                    }
+                                }
+                            }
+                        if let e = auth.biometricError { Text(e).font(.caption).foregroundStyle(Theme.coral) }
+                    } header: {
+                        Text("Security")
+                    } footer: {
+                        Text("Unlock SwiftLap with \(auth.biometricTypeName) instead of retyping your login. You'll still sign in normally on a new device.")
+                    }
+                }
+
+                Section {
+                    Button("Log out", role: .destructive) { auth.logout() }
+                }
+
+                Section {
+                    Button("Delete Account", role: .destructive) { showDeleteConfirm = true }
+                } footer: {
+                    Text("Permanently deletes your account and all your data. This cannot be undone.")
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            .onAppear { faceIDOn = auth.biometricEnabled }
+            .alert("Delete Account?", isPresented: $showDeleteConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }
+            } message: {
+                Text("This permanently deletes your account and all your data. This cannot be undone.")
+            }
+        }
     }
 }
 
