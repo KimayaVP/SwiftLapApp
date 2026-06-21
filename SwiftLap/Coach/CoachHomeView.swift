@@ -54,6 +54,10 @@ struct CoachHomeView: View {
                     .accessibilityLabel("Videos to review")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: { Image(systemName: "envelope") }
+                        .accessibilityLabel("Contact & Feedback")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button { showInvite = true } label: { Label("Invite Swimmer", systemImage: "person.badge.plus") }
                         if auth.biometricAvailable {
@@ -73,7 +77,6 @@ struct CoachHomeView: View {
                                       systemImage: auth.biometricEnabled ? "lock.open" : "faceid")
                             }
                         }
-                        Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
                         Button(role: .destructive) { auth.logout() } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
                         Button(role: .destructive) { showDeleteConfirm = true } label: { Label("Delete Account", systemImage: "trash") }
                     } label: {
@@ -86,7 +89,12 @@ struct CoachHomeView: View {
                 PendingReviewView().environmentObject(auth)
             }
             .sheet(isPresented: $showInvite) { CoachInviteView() }
-            .sheet(isPresented: $showSettings) { CoachSettingsView() }
+            .sheet(isPresented: $showSettings) {
+                NavigationStack {
+                    ContactFeedbackView()
+                        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showSettings = false } } }
+                }
+            }
             .alert("Delete Account?", isPresented: $showDeleteConfirm) {
                 Button("Cancel", role: .cancel) {}
                 Button("Delete", role: .destructive) { Task { await auth.deleteAccount() } }

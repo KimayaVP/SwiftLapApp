@@ -72,8 +72,6 @@ struct SettingsView: View {
                 }
             }
 
-            AppInfoSections()
-
             Section {
                 Button("Log out", role: .destructive) { auth.logout() }
             }

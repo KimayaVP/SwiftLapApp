@@ -17,6 +17,7 @@ struct GoalsView: View {
     @State private var minutes = ""
     @State private var seconds = ""
     @State private var saving = false
+    @State private var pendingDelete: Goal?
 
     var body: some View {
         List {
@@ -29,6 +30,11 @@ struct GoalsView: View {
                     ForEach(goals) { goal in
                         Button { Task { await setActive(goal) } } label: { goalRow(goal) }
                             .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { pendingDelete = goal } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                     }
                 }
             }
@@ -37,8 +43,13 @@ struct GoalsView: View {
                 Picker("Stroke", selection: $stroke) {
                     ForEach(strokeOptions, id: \.self) { Text($0) }
                 }
+                .onChange(of: stroke) { _, newStroke in
+                    if !distancesFor(newStroke).contains(distance) {
+                        distance = distancesFor(newStroke).first ?? 50
+                    }
+                }
                 Picker("Distance", selection: $distance) {
-                    ForEach(distanceOptions, id: \.self) { Text("\($0)m").tag($0) }
+                    ForEach(distancesFor(stroke), id: \.self) { Text("\($0)m").tag($0) }
                 }
                 HStack {
                     TextField("Min", text: $minutes).keyboardType(.numberPad)
@@ -56,6 +67,28 @@ struct GoalsView: View {
         }
         .navigationTitle("Goals")
         .task { await load() }
+        .alert("Delete this goal?", isPresented: Binding(
+            get: { pendingDelete != nil },
+            set: { if !$0 { pendingDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let g = pendingDelete { Task { await delete(g) } }
+            }
+        } message: {
+            Text("This removes the goal. You can set it again anytime.")
+        }
+    }
+
+    private func delete(_ goal: Goal) async {
+        do {
+            try await APIClient.shared.deleteGoal(id: goal.id)
+            pendingDelete = nil
+            await load()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            pendingDelete = nil
+        }
     }
 
     @ViewBuilder

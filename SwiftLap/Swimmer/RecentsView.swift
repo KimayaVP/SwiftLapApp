@@ -17,6 +17,7 @@ struct RecentsView: View {
     @State private var minutes = ""
     @State private var seconds = ""
     @State private var logging = false
+    @State private var pendingDelete: SwimTime?
 
     var body: some View {
         List {
@@ -24,8 +25,13 @@ struct RecentsView: View {
                 Picker("Stroke", selection: $stroke) {
                     ForEach(strokeOptions, id: \.self) { Text($0) }
                 }
+                .onChange(of: stroke) { _, newStroke in
+                    if !distancesFor(newStroke).contains(distance) {
+                        distance = distancesFor(newStroke).first ?? 50
+                    }
+                }
                 Picker("Distance", selection: $distance) {
-                    ForEach(distanceOptions, id: \.self) { Text("\($0)m").tag($0) }
+                    ForEach(distancesFor(stroke), id: \.self) { Text("\($0)m").tag($0) }
                 }
                 HStack {
                     TextField("Min", text: $minutes).keyboardType(.numberPad)
@@ -57,12 +63,39 @@ struct RecentsView: View {
                             Text(sourceIcon(t.source)).font(.caption)
                             Text(formatLapTime(t.timeSeconds)).font(.headline).monospacedDigit()
                         }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) { pendingDelete = t } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
         }
         .navigationTitle("Recents")
         .task { await load() }
+        .alert("Delete this time?", isPresented: Binding(
+            get: { pendingDelete != nil },
+            set: { if !$0 { pendingDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let t = pendingDelete { Task { await delete(t) } }
+            }
+        } message: {
+            Text("This removes it from your recent times. You can log it again anytime.")
+        }
+    }
+
+    private func delete(_ t: SwimTime) async {
+        do {
+            try await APIClient.shared.deleteTime(id: t.id)
+            pendingDelete = nil
+            await load()
+        } catch {
+            self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            pendingDelete = nil
+        }
     }
 
     private func sourceIcon(_ source: String?) -> String {

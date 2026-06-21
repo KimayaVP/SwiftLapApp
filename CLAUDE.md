@@ -107,13 +107,33 @@ Caught up the embedded watch app after the backend moved to 4-digit pairing code
 
 The standalone `SwiftLapWatch` repo is superseded — never merge there; port into `Watch/` instead.
 
-## Settings: Feedback + About the Developer (2026-06-06)
+## Contact & Feedback screen (moved out of Settings 2026-06-21)
 
-Shared `SwiftLap/AppInfoSections.swift` renders two `Section`s — **Feedback** and **About the Developer** — reused by both roles so they stay identical:
-- **Swimmer:** embedded in `SettingsView` (between Apple Watch and Log out).
-- **Coach:** the coach has no standalone settings screen, so `CoachSettingsView` (same file) hosts them in a sheet, opened from a new **Settings** item in the `CoachHomeView` toolbar menu.
+`SwiftLap/AppInfoSections.swift` now defines **`ContactFeedbackView`** — a standalone
+screen (replacing the old in-Settings `AppInfoSections` + `CoachSettingsView`, both
+removed) with three sections: **Contact us** (`contact@swiftlap.in`), **Feedback**
+(`feedback@swiftlap.in`), and **About the developer** (circular photo + Kimaya's bio).
+Constants live at the top of the file. Reached from a **direct toolbar icon** (envelope)
+next to the notifications bell on both roles — swimmer `SwimmerHomeView` toolbar is
+bell + envelope (Contact) + gear (Settings); coach `CoachHomeView` toolbar is bell +
+review + envelope (Contact, opens it as a sheet) + ellipsis menu (Invite/biometric/
+Log out/Delete). `SettingsView` no longer carries these sections; swimmer Log out +
+Delete live inside `SettingsView`.
 
-The content lives in constants at the top of `AppInfoSections.swift` (`feedbackEmail`, `developerBio`, `contactEmail`); empty values fall back to "coming soon" copy. **Filled in 2026-06-10, emails corrected 2026-06-14:** `feedbackEmail` = `feedback@swiftlap.in` (Feedback section), `contactEmail` = `contact@swiftlap.in` (shown as a mailto link under the bio in About the Developer), plus Kimaya's real bio. **Parity DONE** — same emails + bio on web (`../SwiftLap/public/index.html`) and Android (`AppInfo.kt`). The `swiftlap.in` mailboxes are now live (Google Workspace), so the `mailto:` links are deliverable.
+The photo is the **`DeveloperPhoto`** asset (`Assets.xcassets/DeveloperPhoto.imageset/`,
+currently a **placeholder** `developer_photo.png` — replace with Kimaya's real square
+photo); the view falls back to an SF Symbol if the asset is missing. DEBUG hook
+`-screen contact` opens it directly. **Parity:** same screen on web (✉️ header icon →
+`#contactModal`) and Android (⋮ overflow → `ContactFeedbackScreen`). The `swiftlap.in`
+mailboxes are live (Google Workspace), so the `mailto:` links are deliverable.
+
+## Delete + stroke-distances (2026-06-21)
+
+- **Delete** on `RecentsView` + `GoalsView`: `.swipeActions` trash → confirm `.alert`
+  → `APIClient.deleteTime(id:)` / `deleteGoal(id:)` (new; `DELETE /api/times|goals/:id`).
+- **Stroke-dependent distances**: `Shared/Formatting.swift` `distancesFor(_ stroke)`
+  = 25/50/100/200, Freestyle also 400/800/1500. Recents/Goals pickers use it and reset
+  the distance `.onChange(of: stroke)`. Mirrors web + Android.
 
 ## Status: milestones M1–M7 done
 

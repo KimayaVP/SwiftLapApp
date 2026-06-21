@@ -48,12 +48,12 @@ struct SwimmerHomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { NotificationsBell() }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        NavigationLink { SettingsView() } label: { Label("Settings", systemImage: "gearshape") }
-                        Button(role: .destructive) { auth.logout() } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
+                    NavigationLink { ContactFeedbackView() } label: { Image(systemName: "envelope") }
+                        .accessibilityLabel("Contact & Feedback")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink { SettingsView() } label: { Image(systemName: "gearshape") }
+                        .accessibilityLabel("Settings")
                 }
             }
         }

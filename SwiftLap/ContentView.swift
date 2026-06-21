@@ -36,6 +36,7 @@ struct ContentView: View {
             case "achievements": NavigationStack { AchievementsView() }
             case "insights": NavigationStack { InsightsView() }
             case "settings": NavigationStack { SettingsView() }
+            case "contact": NavigationStack { ContactFeedbackView() }
             case "training": NavigationStack { TrainingView() }
             case "meets": NavigationStack { MeetsView() }
             case "friends": NavigationStack { FriendsView() }

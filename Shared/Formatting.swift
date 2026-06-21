@@ -12,4 +12,14 @@ func formatLapTime(_ seconds: Double) -> String {
 }
 
 let strokeOptions = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"]
-let distanceOptions = [50, 100, 200, 400]
+
+/// Distance choices for a stroke. 25/50/100/200 for every stroke; Freestyle also
+/// offers the distance events 400/800/1500. Mirrors web + Android `distancesFor`.
+private let baseDistances = [25, 50, 100, 200]
+private let freestyleExtra = [400, 800, 1500]
+func distancesFor(_ stroke: String) -> [Int] {
+    stroke == "Freestyle" ? baseDistances + freestyleExtra : baseDistances
+}
+
+/// Full superset (used where a stroke isn't in scope).
+let distanceOptions = distancesFor("Freestyle")

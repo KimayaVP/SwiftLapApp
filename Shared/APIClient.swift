@@ -174,6 +174,18 @@ extension APIClient {
         try await postExpectingError("/api/goals/set-active", SetActiveGoalBody(swimmerId: swimmerId, goalId: goalId))
     }
 
+    /// Delete a logged time (accidental-tap recovery). Scoped to the caller server-side.
+    func deleteTime(id: String) async throws {
+        let req = await authorized(makeRequest("/api/times/\(id)", method: "DELETE"))
+        let _: SuccessBody = try await perform(req)
+    }
+
+    /// Delete a goal (accidental-tap recovery). Scoped to the caller server-side.
+    func deleteGoal(id: String) async throws {
+        let req = await authorized(makeRequest("/api/goals/\(id)", method: "DELETE"))
+        let _: SuccessBody = try await perform(req)
+    }
+
     func fetchMeetRecommendations(swimmerId: String) async throws -> [MeetRecommendation] {
         let r: RecommendationsResponse = try await get("/api/meets/recommendations/\(swimmerId)")
         return r.recommendations
